@@ -1,0 +1,8 @@
+{
+  "name": "momentum-io-chrome",
+  "version": "0.1.1",
+  "private": true,
+  "description": "MOMENTUM.IO V0.1 browser multiplayer (WebSocket, no dependencies)",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
