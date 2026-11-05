@@ -6,4 +6,3 @@ services:
     buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /healthz
-    autoDeployTrigger: commit

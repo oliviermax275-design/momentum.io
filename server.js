@@ -1,34 +1,103 @@
-'use strict';
-// MOMENTUM.IO Multiplayer — zéro dépendance externe (Node >=18)
-const http=require('node:http');const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
-const PORT=Number(process.env.PORT||3000), ROOT=path.join(__dirname,'public'),W=3200,H=2200;
-const rooms=new Map(), clients=new Set();let nextId=1;
-const clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),rand=(a,b)=>a+Math.random()*(b-a);
-const arenaDefs=[['vortex','Vortex','Arène principale'],['pulse','Pulse','Arène rapide'],['drift','Drift','Virages techniques']];
-function frame(obj){let b=Buffer.from(JSON.stringify(obj)),l=b.length,head=l<126?Buffer.from([129,l]):l<65536?Buffer.from([129,126,l>>8,l&255]):Buffer.from([129,127,0,0,0,0,(l/16777216)>>>0,(l>>>16)&255,(l>>>8)&255,l&255]);return Buffer.concat([head,b]);}
-function send(c,obj){if(c.socket.destroyed)return;try{c.socket.write(frame(obj))}catch{}}
-function broadcast(room,msg){const f=frame(msg);for(const c of room.clients)if(!c.socket.destroyed)try{c.socket.write(f)}catch{}}
-const clean=s=>String(s||'').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,18)||'Pilote';
-function player(c){return {id:c.id,name:c.name,x:rand(140,W-140),y:rand(140,H-140),vx:rand(-80,80),vy:rand(-80,80),angle:rand(-3,3),energy:0,flow:0,boost:100,hp:100,kills:0,dead:false,respawnAt:0,inv:2,parry:0,parryCd:0,drift:0,drifting:false,sling:0,color:c.color||'#5de2ef',trail:[],in:{x:1,y:0,boost:false,drift:false,parry:false}}}
-const PALETTE=['#64f4fa','#ff8ca3','#d5a2ff','#99f5ae','#ffca74','#80acff'];
-function newRoom(id,title,isPrivate,arena='vortex'){let r={id,title,isPrivate,arena,clients:new Set(),players:new Map(),orbs:[],t:0};for(let i=0;i<180;i++)r.orbs.push({id:i,x:rand(60,W-60),y:rand(60,H-60)});rooms.set(id,r);return r}
-for(const [id,title] of arenaDefs)newRoom(id,title,false,id);
-function code(){let c;do{c=crypto.randomBytes(3).toString('hex').toUpperCase()}while(rooms.has(c));return c}
-function listings(){return [...rooms.values()].map(r=>({id:r.id,title:r.title,private:r.isPrivate,count:r.clients.size,capacity:20,arena:r.arena})).filter(r=>!r.private)}
-function leave(c){if(!c.room)return;const r=c.room;r.players.delete(c.id);r.clients.delete(c);broadcast(r,{type:'left',id:c.id,name:c.name});if(r.isPrivate&&r.clients.size===0)rooms.delete(r.id);c.room=null}
-function join(c,id){const r=rooms.get(id);if(!r){send(c,{type:'error',message:'Salon introuvable. Vérifie le code.'});return}if(r.clients.size>=20){send(c,{type:'error',message:'Ce serveur est complet (20 joueurs).'});return}leave(c);c.room=r;c.player=player(c);r.clients.add(c);r.players.set(c.id,c.player);send(c,{type:'joined',id:c.id,room:{id:r.id,title:r.title,private:r.isPrivate,arena:r.arena},world:{w:W,h:H},players:[...r.players.values()].map(pack),orbs:r.orbs});broadcast(r,{type:'notice',message:`${c.name} a rejoint l'arène`})}
-function pack(p){return {id:p.id,name:p.name,x:Math.round(p.x),y:Math.round(p.y),vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,energy:p.energy,flow:Math.round(p.flow),boost:Math.round(p.boost),hp:Math.round(p.hp),kills:p.kills,dead:p.dead,inv:p.inv>0,parry:p.parry>0,drifting:p.drifting,color:p.color}}
-function message(c,m){if(!m||typeof m!=='object')return;if(m.type==='hello'){c.name=clean(m.name);c.color=PALETTE.includes(m.color)?m.color:PALETTE[0];send(c,{type:'hello',id:c.id,servers:listings()})}else if(m.type==='list')send(c,{type:'servers',servers:listings()});else if(m.type==='create'){const id=code();let r=newRoom(id,clean(m.title||'Salon entre amis'),true,['vortex','pulse','drift'].includes(m.arena)?m.arena:'vortex');join(c,r.id)}else if(m.type==='join'){join(c,String(m.id||'').trim())}else if(m.type==='leave'){leave(c);send(c,{type:'servers',servers:listings()})}else if(m.type==='input'&&c.player){let i=c.player.in,dx=Number(m.x),dy=Number(m.y);if(Number.isFinite(dx)&&Number.isFinite(dy)){let len=Math.hypot(dx,dy)||1;i.x=dx/len;i.y=dy/len}i.boost=!!m.boost;i.drift=!!m.drift;if(m.parry&&c.player.parryCd<=0&&!c.player.dead){c.player.parry=.22;c.player.parryCd=3.5}}else if(m.type==='respawn'&&c.player&&c.player.dead&&Date.now()>=c.player.respawnAt){let p=player(c);p.kills=c.player.kills;c.player=p;c.room.players.set(c.id,p);send(c,{type:'respawned'})}}
-function defeat(v,k,r){if(v.dead)return;v.dead=true;v.respawnAt=Date.now()+2200;v.hp=0;if(k&&k!==v){k.kills++;k.energy=Math.min(150,k.energy+15);k.flow=clamp(k.flow+35,0,100);k.boost=Math.min(100,k.boost+40);k.hp=Math.min(100,k.hp+20)}broadcast(r,{type:'kill',victim:v.id,killer:k?.id||null,killerName:k?.name||'Arène',victimName:v.name})}
-function step(r,dt){r.t+=dt;const ps=[...r.players.values()];for(const p of ps){if(p.dead)continue;const i=p.in;const a=Math.atan2(i.y,i.x);let diff=((a-p.angle+Math.PI*3)%(Math.PI*2))-Math.PI;const drift=!!i.drift;p.drifting=drift;const turn=drift?1.8:3.05;p.angle+=clamp(diff,-turn*dt,turn*dt);const speed=Math.hypot(p.vx,p.vy);const max=clamp(285+p.energy*1.6+Math.min(p.flow,100)*.7,285,590);let accel=drift?165:320;if(i.boost&&p.boost>0){accel+=650;p.boost=Math.max(0,p.boost-dt*30)}else p.boost=Math.min(100,p.boost+dt*13);let cap=max+(i.boost&&p.boost>0?135:0)+(p.sling>0?120:0);if(p.sling>0)p.sling=Math.max(0,p.sling-dt);if(drift)p.drift=clamp(p.drift+dt,0,2.6);else if(p.drift>.6){const bonus=clamp(p.drift*70,40,180);p.sling=.55;p.vx+=Math.cos(p.angle)*bonus;p.vy+=Math.sin(p.angle)*bonus;p.drift=0}else p.drift=0;const desired=Math.min(cap,speed+accel*dt),l=clamp((drift?.42:.84)*dt*4,0,1);p.vx=p.vx*(1-l)+Math.cos(p.angle)*desired*l;p.vy=p.vy*(1-l)+Math.sin(p.angle)*desired*l;let s=Math.hypot(p.vx,p.vy)||1;if(s>cap){p.vx*=cap/s;p.vy*=cap/s}s=Math.hypot(p.vx,p.vy);if(Math.abs(diff)>1.65&&!drift){p.vx*=1-.5*dt;p.vy*=1-.5*dt}p.x+=p.vx*dt;p.y+=p.vy*dt;let bounced=false;if(p.x<18||p.x>W-18){p.x=clamp(p.x,18,W-18);p.vx*=-.75;bounced=true}if(p.y<18||p.y>H-18){p.y=clamp(p.y,18,H-18);p.vy*=-.75;bounced=true}if(bounced)p.flow=Math.max(0,p.flow-10);p.inv=Math.max(0,p.inv-dt);p.parry=Math.max(0,p.parry-dt);p.parryCd=Math.max(0,p.parryCd-dt);if(s>220&&Math.abs(diff)<1.0)p.flow=Math.min(100,p.flow+dt*7);else p.flow=Math.max(0,p.flow-dt*13);p.hp=Math.min(100,p.hp+dt*1.2);
-for(const o of r.orbs){if(Math.abs(o.x-p.x)>22||Math.abs(o.y-p.y)>22)continue;if(Math.hypot(o.x-p.x,o.y-p.y)<21){p.energy=Math.min(150,p.energy+1);p.boost=Math.min(100,p.boost+2);o.x=rand(40,W-40);o.y=rand(40,H-40)}}}
-for(let j=0;j<ps.length;j++)for(let k=j+1;k<ps.length;k++){let a=ps[j],b=ps[k];if(a.dead||b.dead||a.inv>0||b.inv>0)continue;let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.001;if(d>30)continue;let sa=Math.hypot(a.vx,a.vy),sb=Math.hypot(b.vx,b.vy),fast=sa>=sb?a:b,slow=fast===a?b:a,delta=Math.abs(sa-sb);let nx=dx/d,ny=dy/d;a.x-=nx*(31-d)*.5;a.y-=ny*(31-d)*.5;b.x+=nx*(31-d)*.5;b.y+=ny*(31-d)*.5;
-if(a.parry>0||b.parry>0){const defender=a.parry>0?a:b,attacker=defender===a?b:a;defender.parry=0;defender.inv=.25;attacker.vx=(attacker.x-defender.x)/d*450;attacker.vy=(attacker.y-defender.y)/d*450;attacker.hp-=16;if(attacker.hp<=0)defeat(attacker,defender,r);continue}
-slow.vx+=(slow.x-fast.x)/d*clamp(delta*.85+120,180,460);slow.vy+=(slow.y-fast.y)/d*clamp(delta*.85+120,180,460);slow.hp-=clamp(7+delta*.13,7,70);fast.hp-=Math.min(9,delta*.026);slow.inv=.55;fast.inv=.45;if(delta>175&&sa+sb>420||slow.hp<=0)defeat(slow,fast,r);if(fast.hp<=0)defeat(fast,slow,r)}
-if(r.clients.size&&Math.floor(r.t*15)!==Math.floor((r.t-dt)*15))broadcast(r,{type:'state',t:Date.now(),players:ps.map(pack),orbs:r.orbs.map(o=>[o.id,Math.round(o.x),Math.round(o.y)])});}
-let last=Date.now();setInterval(()=>{let now=Date.now(),dt=clamp((now-last)/1000,0,.05);last=now;for(const r of rooms.values())if(r.clients.size)step(r,dt)},1000/30);
-function onFrame(c,data){try{const m=JSON.parse(data);message(c,m)}catch{}}
-function consume(c,data){c.buffer=Buffer.concat([c.buffer,data]);while(c.buffer.length>=2){const b=c.buffer,b0=b[0],b1=b[1],op=b0&15,masked=!!(b1&128);let len=b1&127,offset=2;if(len===126){if(b.length<4)return;len=b.readUInt16BE(2);offset=4}else if(len===127){if(b.length<10)return;const big=b.readBigUInt64BE(2);if(big>65536n){c.socket.destroy();return}len=Number(big);offset=10}if(!masked){c.socket.destroy();return}if(len>65536){c.socket.destroy();return}if(b.length<offset+4+len)return;const mask=b.subarray(offset,offset+4),msg=Buffer.from(b.subarray(offset+4,offset+4+len));for(let i=0;i<msg.length;i++)msg[i]^=mask[i%4];c.buffer=b.subarray(offset+4+len);if(op===8){c.socket.end();return}if(op===9){try{c.socket.write(Buffer.from([0x8a,0]))}catch{}continue}if(op===1)onFrame(c,msg.toString('utf8'))}}
-const server=http.createServer((req,res)=>{const raw=(req.url||'/').split('?')[0];let filename;try{filename=decodeURIComponent(raw)}catch{res.writeHead(400).end();return}if(filename==='/healthz'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({status:'ok',service:'momentum-io',multiplayer:'prototype'}));return}if(filename==='/')filename='/index.html';if(filename==='/multi'||filename==='/multijoueur')filename='/multijoueur.html';const full=path.resolve(ROOT,'.'+filename);if(!full.startsWith(ROOT+path.sep)){res.writeHead(403).end();return}fs.readFile(full,(err,data)=>{if(err){res.writeHead(404).end('Fichier introuvable');return}res.writeHead(200,{'Content-Type':full.endsWith('.html')?'text/html; charset=utf-8':full.endsWith('.js')?'text/javascript; charset=utf-8':'text/plain; charset=utf-8','Cache-Control':'no-cache'});res.end(data)})});
-server.on('upgrade',(req,socket,head)=>{if(req.url!=='/ws'||req.headers.upgrade?.toLowerCase()!=='websocket'||!req.headers['sec-websocket-key']){socket.destroy();return}const accept=crypto.createHash('sha1').update(req.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');const c={id:String(nextId++),name:'Pilote',color:PALETTE[0],socket,buffer:Buffer.alloc(0),room:null,player:null};clients.add(c);socket.on('data',data=>consume(c,data));socket.on('close',()=>{leave(c);clients.delete(c)});socket.on('error',()=>{leave(c);clients.delete(c)});if(head.length)consume(c,head)});
-server.listen(PORT,'0.0.0.0',()=>console.log(`MOMENTUM.IO multijoueur sur http://localhost:${PORT}`));
+"use strict";
+// MOMENTUM.IO shared arena beta. Node 20+, no production payments.
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const PORT=Number(process.env.PORT||3000),ROOT=path.join(__dirname,'public'),WORLD=4200,TAU=Math.PI*2;
+const peers=new Set(),ships=new Map(),botShips=new Map();let nextId=0,serverTime=0;
+const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function WSframe(obj){const b=Buffer.from(JSON.stringify(obj));let h;if(b.length<126)h=Buffer.from([129,b.length]);else if(b.length<65536)h=Buffer.from([129,126,b.length>>8,b.length&255]);else{h=Buffer.alloc(10);h[0]=129;h[1]=127;h.writeBigUInt64BE(BigInt(b.length),2)}return Buffer.concat([h,b])}
+function send(c,obj){try{if(!c.socket.destroyed)c.socket.write(WSframe(obj))}catch{}}
+function broadcast(obj){const buf=WSframe(obj);for(const c of peers)try{if(c.joined&&!c.socket.destroyed)c.socket.write(buf)}catch{}}
+function safeName(s){return String(s||'PILOTE').replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,16)||'PILOTE'}
+const hues=[15,25,48,115,165,195,215,245,275,300,325,350];
+const botNames=['Vortex','Nitro','Pulse','Arc','Glitch','Rift','Nova','Kite','Turbo','Bolt','Zephyr','Flash','Ion','Comet','Flux','Aero','Jinx','Vector','Rush','Ghost','Hyper','Quark','Zoom'];
+const planets=[];
+for(const [type,count] of [['large',2],['medium',5],['small',9]])for(let k=0;k<count;k++){
+ let r=type==='large'?rand(320,440):type==='medium'?rand(144,192):rand(78,105);
+ for(let i=0;i<650;i++){let x=rand(-WORLD+r+150,WORLD-r-150),y=rand(-WORLD+r+150,WORLD-r-150);
+  if(Math.hypot(x,y)<Math.max(560,r+280))continue;
+  if(planets.some(p=>Math.hypot(x-p.x,y-p.y)<p.r+r+Math.max(235,(p.r+r)*.72)))continue;
+  let a=rand(0,TAU),v=rand(1.7,5.8);planets.push({x,y,r,size:type,vx:Math.cos(a)*v,vy:Math.sin(a)*v,phase:rand(0,TAU),hue:type==='large'?36:type==='medium'?278:208});break;
+ }
+}
+function emptyAt(x,y,extra=40){return !planets.some(p=>Math.hypot(p.x-x,p.y-y)<p.r+extra)}
+function spawn(){for(let i=0;i<100;i++){let x=rand(-3500,3500),y=rand(-3500,3500);if(emptyAt(x,y,220)&&[...ships.values(),...botShips.values()].every(s=>Math.hypot(s.x-x,s.y-y)>160))return {x,y}}return {x:0,y:0}}
+function createBot(){let p=spawn(),id='bot-'+(++nextId);return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,vx:rand(-80,80),vy:rand(-80,80),angle:rand(-3,3),hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,boosting:false,invuln:2,thought:0,target:0,respawn:0,alive:true}}
+function fillSlots(){const want=Math.max(0,20-ships.size);while(botShips.size>want)botShips.delete(botShips.keys().next().value);while(botShips.size<want){const b=createBot();botShips.set(b.id,b)}}
+function pack(p){return {id:p.id,bot:!!p.bot,name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,hue:p.hue,level:p.level,score:p.score,energy:p.energy,boosting:p.boosting,invuln:p.invuln}}
+function depart(c){if(!c.joined)return;c.joined=false;ships.delete(c.id);fillSlots()}
+function receive(c,m){if(!m||typeof m!=='object')return;
+ if(m.type==='leave'){depart(c);return}
+ if(m.type==='join'){
+  if(c.joined){depart(c)}
+  if(ships.size>=20){send(c,{type:'error',message:'Arène pleine (20/20)'});return}
+  const pos=spawn();c.joined=true;c.id=c.id||'p-'+(++nextId);
+  const p={id:c.id,bot:false,name:safeName(m.name),x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true};
+  ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'ARÈNE PRINCIPALE',spawn:pos,planets});return;
+ }
+ if(!c.joined)return;
+ if(m.type==='local-death'){depart(c);return}
+ if(m.type==='pilot'){
+  const p=ships.get(c.id);if(!p)return;
+  const nums=['x','y','vx','vy','angle','level','score','energy'];if(!nums.every(k=>Number.isFinite(Number(m[k]))))return;
+  let x=clamp(Number(m.x),-WORLD,WORLD),y=clamp(Number(m.y),-WORLD,WORLD),vx=Number(m.vx),vy=Number(m.vy);
+  const speed=Math.hypot(vx,vy),level=clamp(Math.floor(Number(m.level)),1,5000);
+  const top=(310+Math.min(220,((Math.min(20,level)-1)*17)+(level>20?62*(1-Math.exp(-(level-20)/20)):0)))*1.44*1.25;
+  if(speed>top*1.25){vx=vx/speed*top;vy=vy/speed*top}
+  const age=Math.max(.015,Math.min(.25,(Date.now()-p.last)/1000));
+  // Basic plausibility check; not a substitute for true authoritative physics.
+  if(Math.hypot(x-p.x,y-p.y)>Math.max(140,top*age*3.3)&&Date.now()-p.last<1200)return;
+  p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();
+ }
+}
+function collide(a,b){if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
+ const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>37)return;
+ const ax=a.x+Math.cos(a.angle)*22,ay=a.y+Math.sin(a.angle)*22;
+ const bx=b.x+Math.cos(b.angle)*22,by=b.y+Math.sin(b.angle)*22;
+ const at=Math.hypot(ax-b.x,ay-b.y)<19,bt=Math.hypot(bx-a.x,by-a.y)<19;
+ if(!at&&!bt)return;
+ let winner,loser;
+ if(at&&bt){let va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);if(Math.abs(va-vb)<18)return;winner=va>vb?a:b;loser=winner===a?b:a}
+ else {winner=at?a:b;loser=at?b:a}
+ loser.invuln=5;loser.alive=false;
+ if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id});}
+ else {const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
+ if(!winner.bot){const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
+}
+function step(dt){serverTime+=dt;
+ for(const p of planets){p.x+=p.vx*dt;p.y+=p.vy*dt;for(const axis of ['x','y'])if(Math.abs(p[axis])>WORLD-p.r-150){p[axis]=clamp(p[axis],-WORLD+p.r+150,WORLD-p.r-150);p['v'+axis]*=-1}}
+ for(const b of botShips.values()){
+  if(!b.alive){if(serverTime>=b.respawn){let x=spawn();b.x=x.x;b.y=x.y;b.invuln=2;b.vx=b.vy=0;b.alive=true}continue}
+  b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
+  if(b.thought<=0){b.thought=rand(.22,.65);let target=[...ships.values()].sort((a,c)=>Math.hypot(a.x-b.x,a.y-b.y)-Math.hypot(c.x-b.x,c.y-b.y))[0];
+   b.target=target&&Math.hypot(target.x-b.x,target.y-b.y)<750?Math.atan2(target.y-b.y,target.x-b.x):b.angle+rand(-1.2,1.2)}
+  for(const p of planets){let dx=b.x+b.vx*.5-p.x,dy=b.y+b.vy*.5-p.y,d=Math.hypot(dx,dy);if(d<p.r+130){b.target=Math.atan2(dy,dx)+.35;break}}
+  let diff=Math.atan2(Math.sin(b.target-b.angle),Math.cos(b.target-b.angle)),v=Math.hypot(b.vx,b.vy);
+  b.angle+=clamp(diff,-2.5*dt,2.5*dt);b.boosting=Math.sin(serverTime*.7+b.hue)>.25;
+  b.energy=clamp(b.energy+(b.boosting?-24:14)*dt,0,100);
+  let acc=b.boosting&&b.energy>0?520:270;
+  b.vx=b.vx*Math.pow(.991,dt*60)+Math.cos(b.angle)*acc*dt;
+  b.vy=b.vy*Math.pow(.991,dt*60)+Math.sin(b.angle)*acc*dt;
+  v=Math.hypot(b.vx,b.vy);let cap=b.boosting?440:326;if(v>cap){b.vx*=cap/v;b.vy*=cap/v}
+  for(const p of planets){let dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy);if(d>p.r&&d<p.r*3.25){let inf=Math.pow(1-(d-p.r)/(p.r*2.25),1.7),s=Math.hypot(b.vx,b.vy);b.vx+=dx/d*335*inf*dt;b.vy+=dy/d*335*inf*dt;let ns=Math.hypot(b.vx,b.vy);if(ns){b.vx*=s/ns;b.vy*=s/ns}}}
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  for(const p of planets){let dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),lim=p.r+13;if(d<lim){let nx=dx/(d||1),ny=dy/(d||1);b.x=p.x+nx*lim;b.y=p.y+ny*lim;let dot=b.vx*nx+b.vy*ny;if(dot<0){b.vx-=1.7*dot*nx;b.vy-=1.7*dot*ny}b.vx*=.65;b.vy*=.65;}}
+  if(Math.abs(b.x)>WORLD-16){b.x=clamp(b.x,-WORLD+16,WORLD-16);b.vx*=-.55}if(Math.abs(b.y)>WORLD-16){b.y=clamp(b.y,-WORLD+16,WORLD-16);b.vy*=-.55}
+ }
+ for(const p of ships.values())p.invuln=Math.max(0,p.invuln-dt);
+ const all=[...ships.values(),...botShips.values()].filter(x=>x.alive);
+ for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++)collide(all[i],all[j]);
+}
+const app=http.createServer((req,res)=>{
+ let url;try{url=new URL(req.url,'http://localhost')}catch{res.writeHead(400).end();return}
+ if(url.pathname==='/healthz'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({ok:true,humans:ships.size,bots:botShips.size,capacity:20,mode:'beta-multiplayer'}));return}
+ const urlPath=url.pathname==='/'?'/index.html':url.pathname;
+ let full=path.resolve(ROOT,'.'+decodeURIComponent(urlPath));if(!full.startsWith(ROOT+path.sep)){res.writeHead(403).end();return}
+ fs.readFile(full,(err,buf)=>{if(err){res.writeHead(404).end('Not found');return}res.writeHead(200,{'Content-Type':full.endsWith('.html')?'text/html; charset=utf-8':'text/plain','Cache-Control':'no-cache'});res.end(buf)})
+});
+function consume(c,chunk){c.buffer=Buffer.concat([c.buffer,chunk]);while(c.buffer.length>=2){const b=c.buffer,op=b[0]&15,masked=!!(b[1]&128);let len=b[1]&127,off=2;if(len===126){if(b.length<4)return;len=b.readUInt16BE(2);off=4}else if(len===127){if(b.length<10)return;let n=b.readBigUInt64BE(2);if(n>65536n){c.socket.destroy();return}len=Number(n);off=10}if(!masked||len>65536){c.socket.destroy();return}if(b.length<off+4+len)return;const key=b.subarray(off,off+4),msg=Buffer.from(b.subarray(off+4,off+4+len));for(let i=0;i<msg.length;i++)msg[i]^=key[i%4];c.buffer=b.subarray(off+4+len);if(op===8){c.socket.end();return}if(op===9){c.socket.write(Buffer.from([0x8a,0]));continue}if(op===1){try{receive(c,JSON.parse(msg.toString('utf8')))}catch{}}}}
+app.on('upgrade',(req,socket)=>{if(req.url!=='/live'||req.headers.upgrade?.toLowerCase()!=='websocket'||!req.headers['sec-websocket-key']){socket.destroy();return}
+ const accept=crypto.createHash('sha1').update(req.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
+ const c={socket,buffer:Buffer.alloc(0),joined:false,id:null};peers.add(c);socket.on('data',b=>consume(c,b));socket.on('error',()=>{});socket.on('close',()=>{depart(c);peers.delete(c)});
+});
+fillSlots();let prev=Date.now(),broadcastElapsed=0;setInterval(()=>{let now=Date.now(),dt=clamp((now-prev)/1000,0,.07);prev=now;step(dt);broadcastElapsed+=dt;if(broadcastElapsed>.08){broadcastElapsed=0;broadcast({type:'state',humans:ships.size,bots:botShips.size,ships:[...ships.values(),...botShips.values()].filter(x=>x.alive).map(pack),planets})}},1000/30);
+app.listen(PORT,'0.0.0.0',()=>console.log('MOMENTUM.IO beta shared arena listening on '+PORT));

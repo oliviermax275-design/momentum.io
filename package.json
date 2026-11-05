@@ -1,12 +1,1 @@
-{
-  "name": "momentum-io-render",
-  "version": "1.0.0",
-  "private": true,
-  "description": "MOMENTUM.IO demo and WebSocket multiplayer test",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=20"
-  }
-}
+{"name":"momentum-io","version":"2.0.0","private":true,"description":"MOMENTUM.IO arène partagée beta","scripts":{"start":"node server.js","check":"node --check server.js"},"engines":{"node":">=20"}}
