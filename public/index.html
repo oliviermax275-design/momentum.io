@@ -1,4 +1,4 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>MOMENTUM.IO — VERSION SOLO · LANCEMENT</title><style>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>MOMENTUM.IO — ARÈNE MULTIJOUEUR</title><style>
 :root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none;background:#070c1b;color:#ecf6ff;font-family:Inter,system-ui,Arial,sans-serif}canvas{display:block;width:100vw;height:100vh;cursor:crosshair;touch-action:none}#hud{position:fixed;inset:0;pointer-events:none}#top{position:absolute;top:18px;left:20px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}.panel{background:#0b1525dc;border:1px solid #3e5a7566;box-shadow:0 8px 35px #0005;border-radius:16px;padding:12px 16px;backdrop-filter:blur(14px)}#stats{min-width:218px}#brand{font-size:15px;font-weight:950;letter-spacing:1.3px;color:#7de9ff}#speed{font-size:32px;font-weight:950;letter-spacing:-1px;line-height:1.22}#speed small{font-size:13px;font-weight:600;color:#94a8b9}#bar{width:100%;height:8px;background:#263c4d;border-radius:50px;overflow:hidden;margin:8px 0}#fill{height:100%;width:0;background:linear-gradient(90deg,#45c7ff,#b8fc76);border-radius:50px}#sub{font-size:12px;color:#a0b7c7}#board{position:absolute;right:18px;top:18px;min-width:185px;font-size:13px}#board b{display:block;letter-spacing:1px;margin-bottom:8px;color:#bce7f4}#board div{display:flex;justify-content:space-between;gap:14px;padding:3px 0;color:#d2e4f3}#board .me{color:#82f5eb;font-weight:800}#bottom{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);text-align:center;font-size:13px;color:#bad5e8;background:#0c1b2acc;border:1px solid #44617855;padding:10px 15px;border-radius:20px;white-space:nowrap}kbd{background:#263f50;border:1px solid #598498;border-radius:5px;padding:2px 7px;color:white}#notice{position:absolute;top:24%;left:50%;transform:translateX(-50%);font-size:24px;font-weight:900;text-shadow:0 3px 22px #000;opacity:0;transition:opacity .15s;text-align:center}#overlay{position:absolute;inset:0;display:grid;place-items:center;pointer-events:auto;background:radial-gradient(circle at 50% 44%,#122f47bb,#040912ed 70%)}#overlay.hidden{display:none}#menu{max-width:570px;width:calc(100% - 28px);text-align:center;background:#101e31f2;border:1px solid #4e7897aa;border-radius:24px;padding:32px;box-shadow:0 25px 100px #0009}h1{font-size:clamp(40px,7vw,66px);margin:0;line-height:1;letter-spacing:-3px;background:linear-gradient(90deg,#86e9ff,#aefbba);color:transparent;background-clip:text}#menu p{line-height:1.55;color:#b7d0e1}#menu .details{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:21px 0;text-align:left}.detail{background:#162b3f;border:1px solid #345a70;border-radius:12px;padding:12px;font-size:12px;color:#a9c2d2}.detail strong{display:block;font-size:15px;color:#f0fbff;margin-bottom:4px}button{pointer-events:auto;border:0;border-radius:13px;font-size:17px;font-weight:900;padding:15px 25px;color:#072130;cursor:pointer;background:linear-gradient(110deg,#7debff,#bafa8a);box-shadow:0 6px 22px #36c2c844}button:hover{filter:brightness(1.12)}#menu .hint{font-size:12px;color:#789ab2;margin-top:15px}#toast{position:absolute;top:88px;left:50%;transform:translateX(-50%);font-size:13px;color:#a9fbdb;background:#102a35d9;border:1px solid #4aaf9a8a;border-radius:999px;padding:8px 14px;opacity:0;transition:opacity .25s;white-space:nowrap}@media(max-width:650px){#top{top:10px;left:10px}#stats{min-width:165px;padding:9px 11px}#speed{font-size:25px}#board{top:10px;right:10px;min-width:130px;padding:10px;font-size:11px}#bottom{font-size:11px;white-space:normal;width:calc(100% - 25px);bottom:8px}#menu{padding:24px 15px}#menu .details{grid-template-columns:1fr}.detail{padding:9px}}
 
 #presets{margin:13px auto 20px;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap}
@@ -549,6 +549,49 @@ body:not(.in-game) #admin-toggle,body:not(.in-game) #admin-panel{display:none!im
 .auth-divider{display:flex;align-items:center;gap:12px;margin:19px 0 7px;color:#85adbc;font-size:12px}
 .auth-divider:before,.auth-divider:after{content:'';height:1px;flex:1;background:#315062}
 #auth-working{font-size:14px;color:#b6d9e3;text-align:center;padding:24px}
+
+/* V4 — Lisibilité et hiérarchie du lobby */
+#menu .personal-records{justify-content:flex-start;max-width:385px;width:100%;margin-left:0;align-items:stretch}
+#menu .personal-records span{flex:1;min-width:0;text-align:left;padding:13px 15px;font-size:12px;line-height:1.4}
+#menu .personal-records b{font-size:20px;display:block;margin-top:5px;text-align:left;white-space:nowrap}
+#menu .account-card{max-width:565px;padding:30px}
+#menu .menu-stat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:20px;font-size:15px;padding:12px 0}
+#menu .menu-stat strong{font-size:16px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+#menu .page-eyebrow,#menu .reward-tag{font-size:12px;letter-spacing:1.35px}
+#menu .page-heading p{font-size:16px;line-height:1.55}
+#menu .showcase-text p{font-size:16px;line-height:1.65}
+#menu .chest-prize{font-size:14px!important;line-height:1.5!important}
+#menu .skin-grid{gap:16px}
+#menu .skin-card{min-height:285px;padding:20px 15px;gap:9px}
+#menu .skin-card h3{font-size:19px;line-height:1.25;min-height:25px}
+#menu .skin-card p{font-size:14px!important;line-height:1.4;min-height:22px}
+#menu .skin-card .skin-price{font-size:17px}
+#menu .skin-card button{font-size:14px;min-height:42px}
+#menu .skin-rarity{font-size:11px}
+#menu .pack-card h3{font-size:20px}
+#menu .pack-card p{font-size:14px}
+#menu .local-disclaimer{font-size:13px!important;line-height:1.6!important}
+@media(max-width:760px){#menu .skin-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#menu .skin-card{min-height:250px;padding:13px 10px}#menu .skin-card h3{font-size:16px}#menu .skin-card p{font-size:12px!important}#menu .skin-card .skin-price{font-size:14px}#menu .chest-showroom{grid-template-columns:1fr;gap:15px;padding:18px}#menu .showcase-text p{font-size:15px}}
+@media(max-width:420px){#menu .personal-records span{padding:10px;font-size:10px}#menu .personal-records b{font-size:15px}#menu .menu-stat{font-size:13px}#menu .menu-stat strong{font-size:14px}}
+
+
+/* Authentification — écran d'accueil plus professionnel */
+#auth-gate{background:radial-gradient(circle at 53% 17%,rgba(65,210,209,.12),transparent 35%),linear-gradient(125deg,rgba(3,12,24,.94),rgba(4,22,37,.95));}
+#auth-gate:before{content:"";pointer-events:none;position:absolute;inset:0;opacity:.2;background-image:linear-gradient(#4d849f23 1px,transparent 1px),linear-gradient(90deg,#4d849f23 1px,transparent 1px);background-size:58px 58px;mask-image:linear-gradient(transparent,#000 27%,#000 70%,transparent)}
+#auth-gate .auth-card{position:relative;width:min(530px,100%);border:1px solid rgba(131,238,227,.36);border-radius:23px;padding:clamp(26px,5vw,46px);background:linear-gradient(155deg,#112a3bf5,#071523f8);box-shadow:0 35px 110px #000a,0 0 58px #2de0bd12}
+#auth-gate .auth-mark{font-size:clamp(30px,5vw,39px);margin-bottom:8px;letter-spacing:-1.3px}
+#auth-gate .auth-kicker{font-size:12px;letter-spacing:1.75px;margin-bottom:26px;color:#91cde0}
+#auth-gate .auth-card h2{font-size:clamp(27px,4vw,37px);line-height:1.12;letter-spacing:-.7px;margin-bottom:10px}
+#auth-gate .auth-card p{font-size:16px;line-height:1.6;margin-bottom:24px}
+#auth-gate .auth-card input{height:54px;font-size:16px;border-color:#5e95a8;background:#061725cc}
+#auth-gate .auth-card button{min-height:52px;font-size:16px;letter-spacing:.15px;transition:filter .14s ease,transform .14s ease}
+#auth-gate .auth-card button:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+#auth-gate .auth-card button:focus-visible{outline:2px solid #a7ffed;outline-offset:2px}
+#auth-gate .auth-card .auth-google{background:#f5fbff;color:#1e3342}
+#auth-gate .auth-divider{font-size:13px;margin:20px 0 9px}
+#auth-gate #auth-message{font-size:14px;line-height:1.5}
+@media(max-height:660px){#auth-gate .auth-card{padding:22px 28px}#auth-gate .auth-kicker{margin-bottom:14px}}
+
 </style></head><body><div id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
  <div class="auth-card"><div class="auth-mark">MOMENTUM<span>.IO</span></div><div class="auth-kicker">TON COMPTE · TON ARÈNE</div>
   <div id="auth-working">Vérification de ta connexion…</div>
@@ -621,14 +664,29 @@ function netConnect(){if(arenaSocket&&arenaSocket.readyState<=1)return;
  arenaSocket.onclose=()=>{arenaState='déconnecté';arenaId=null;remoteById.clear();netPlayers=1;netBots=19;setTimeout(()=>{if(playing)netConnect()},1800)};
 }
 function netEntity(s){let e=remoteById.get(s.id);if(!e){e=entity(s.x,s.y,true);e.id=s.id;e.name=s.name;e.trail=[];remoteById.set(s.id,e)}
- e.prevX=e.x;e.prevY=e.y;e.prevAngle=e.angle;
- e.x=s.x;e.y=s.y;e.vx=s.vx;e.vy=s.vy;e.angle=s.angle;e.hue=s.hue;e.level=s.level||1;e.score=s.score||0;e.alive=true;e.energy=s.energy??100;e.boosting=!!s.boosting;e.invuln=s.invuln||0;e.r=s.bot?14:16;
- if(!e.trail.length||hyp(e.x-e.trail[e.trail.length-1].x,e.y-e.trail[e.trail.length-1].y)>4)e.trail.push({x:e.x,y:e.y,life:.6});
- if(e.trail.length>20)e.trail.shift();return e;
+ // Positions réseau cibles : l'affichage est interpolé à 60 FPS dans update().
+ if(e.netX===undefined){e.x=s.x;e.y=s.y;e.angle=s.angle;}
+ e.netX=s.x;e.netY=s.y;e.netAngle=s.angle;e.netUpdated=performance.now();
+ if(hyp(e.netX-e.x,e.netY-e.y)>650){e.x=e.netX;e.y=e.netY;e.angle=e.netAngle;e.trail.length=0;}
+ e.vx=s.vx;e.vy=s.vy;e.hue=s.hue;e.level=s.level||1;e.score=s.score||0;e.alive=true;e.energy=s.energy??100;e.boosting=!!s.boosting;e.invuln=s.invuln||0;e.r=s.bot?14:16;
+ return e;
 }
 function netReceive(m){
  if(m.type==='joined'){arenaId=m.id;arenaState='connecté';netRoom=m.room||'ARÈNE 1';if(Array.isArray(m.planets)&&m.planets.length){planets=m.planets}if(player&&m.spawn){player.x=m.spawn.x;player.y=m.spawn.y;camera.x=player.x;camera.y=player.y;player.trail=[]}toast('CONNECTÉ · '+netRoom);return;}
  if(m.type==='state'&&arenaId){netPlayers=m.humans;netBots=m.bots;const used=new Set();for(const s of m.ships||[]){if(s.id===arenaId)continue;used.add(s.id);netEntity(s)}for(const id of remoteById.keys())if(!used.has(id))remoteById.delete(id);if(Array.isArray(m.planets)&&m.planets.length)planets=m.planets;return;}
+ if(m.type==='bot-down'){
+  // Loot visible pour toutes les victimes bots, y compris bot contre bot.
+  const x=Number(m.x),y=Number(m.y);
+  if(Number.isFinite(x)&&Number.isFinite(y)){
+   for(let i=0;i<12;i++){
+    const ox=clamp(x+rand(-78,78),-WORLD+40,WORLD-40),oy=clamp(y+rand(-78,78),-WORLD+40,WORLD-40);
+    orbs.push(orb(ox,oy,i<3?3:1,i<3?'super':'xp'));
+   }
+   burst(x,y,Number(m.hue)||175,16,190);ring(x,y,Number(m.hue)||175);
+  }
+  remoteById.delete(m.victim);
+  return;
+ }
  if(m.type==='defeat'&&m.victim===arenaId&&player?.alive){player.invuln=0;kill(player,null,'combat');return;}
  if(m.type==='reward'&&player?.alive){player.kills++;player.score+=140+22*(m.level||1);player.xp+=40;levelUp(player);player.energy=Math.min(100,player.energy+27);player.streak++;player.streakTime=8;playSound('kill');msg('ÉLIMINATION · COMBO ×'+player.streak,1.6);return;}
  if(m.type==='error')toast(m.message||'ERREUR RÉSEAU');
@@ -855,7 +913,20 @@ function collisions(){
   }
  }
 }
-function update(dt){updateTutorial();if(player&&player.alive){currentRunElapsed+=dt;runMaxSpeed=Math.max(runMaxSpeed,kmh(hyp(player.vx,player.vy)));}gameTime+=dt;updateTokens(dt);elapsed+=dt;shake*=Math.pow(.84,dt*60);if(noticeTime>0){noticeTime-=dt;if(noticeTime<=0)UI.notice.style.opacity=0}if(toastTime>0){toastTime-=dt;if(toastTime<=0)UI.toast.style.opacity=0}if(!arenaId)advancePlanets(dt);updateEntity(player,dt);if(player&&player.alive)soundMotor(hyp(player.vx,player.vy),player.boosting);if(arenaId){bots=[];netReport(dt);for(const e of remoteById.values()){for(const p of e.trail)p.life-=dt;e.trail=e.trail.filter(t=>t.life>0)}}else{for(const b of [...bots])updateEntity(b,dt);collisions();while(playing&&bots.length<MAX_BOTS)bots.push(spawnBot());}for(let i=sparks.length-1;i>=0;i--){let s=sparks[i];s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=Math.pow(.95,dt*60);s.vy*=Math.pow(.95,dt*60);s.life-=dt;if(s.life<=0)sparks.splice(i,1)}for(let i=rings.length-1;i>=0;i--){let r=rings[i];r.r+=dt*290;r.life-=dt;if(r.life<=0)rings.splice(i,1)}for(let i=floats.length-1;i>=0;i--){let f=floats[i];f.y-=34*dt;f.life-=dt;if(f.life<=0)floats.splice(i,1)}if(orbs.length<MAX_ORBS){let missing=MAX_ORBS-orbs.length;let n=Math.min(missing,Math.max(1,Math.ceil(missing*.06)));for(let i=0;i<n;i++)orbs.push(newOrb());}let follow=1-Math.pow(.025,dt);camera.x+=(player.x-camera.x)*follow;camera.y+=(player.y-camera.y)*follow;let mobileView=document.body.classList.contains('touch-ui');let baseZoom=mobileView?(H>W?.74:.80):1;let targetZoom=baseZoom*(preset==='dynamic'?1-clamp((hyp(player.vx,player.vy)-240)/360,0,.12):1);zoom+=(targetZoom-zoom)*clamp(dt*3,0,1);if(elapsed>.15){elapsed=0;updateHud()}}
+function update(dt){updateTutorial();if(player&&player.alive){currentRunElapsed+=dt;runMaxSpeed=Math.max(runMaxSpeed,kmh(hyp(player.vx,player.vy)));}gameTime+=dt;updateTokens(dt);elapsed+=dt;shake*=Math.pow(.84,dt*60);if(noticeTime>0){noticeTime-=dt;if(noticeTime<=0)UI.notice.style.opacity=0}if(toastTime>0){toastTime-=dt;if(toastTime<=0)UI.toast.style.opacity=0}if(!arenaId)advancePlanets(dt);updateEntity(player,dt);if(player&&player.alive)soundMotor(hyp(player.vx,player.vy),player.boosting);if(arenaId){bots=[];netReport(dt);for(const e of remoteById.values()){
+  if(Number.isFinite(e.netX)&&Number.isFinite(e.netY)){
+   const factor=1-Math.exp(-dt*17);
+   // Faible prédiction du mouvement entre deux paquets, sans à-coups.
+   const lag=clamp((performance.now()-(e.netUpdated||performance.now()))/1000,0,.075);
+   e.x+=(e.netX+e.vx*lag-e.x)*factor;
+   e.y+=(e.netY+e.vy*lag-e.y)*factor;
+   const delta=Math.atan2(Math.sin(e.netAngle-e.angle),Math.cos(e.netAngle-e.angle));
+   e.angle+=delta*factor;
+   if(!e.trail.length||hyp(e.x-e.trail[e.trail.length-1].x,e.y-e.trail[e.trail.length-1].y)>6)e.trail.push({x:e.x,y:e.y,life:.55});
+   if(e.trail.length>22)e.trail.shift();
+  }
+  for(const p of e.trail)p.life-=dt;e.trail=e.trail.filter(t=>t.life>0)
+ }}else{for(const b of [...bots])updateEntity(b,dt);collisions();while(playing&&bots.length<MAX_BOTS)bots.push(spawnBot());}for(let i=sparks.length-1;i>=0;i--){let s=sparks[i];s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=Math.pow(.95,dt*60);s.vy*=Math.pow(.95,dt*60);s.life-=dt;if(s.life<=0)sparks.splice(i,1)}for(let i=rings.length-1;i>=0;i--){let r=rings[i];r.r+=dt*290;r.life-=dt;if(r.life<=0)rings.splice(i,1)}for(let i=floats.length-1;i>=0;i--){let f=floats[i];f.y-=34*dt;f.life-=dt;if(f.life<=0)floats.splice(i,1)}if(orbs.length<MAX_ORBS){let missing=MAX_ORBS-orbs.length;let n=Math.min(missing,Math.max(1,Math.ceil(missing*.06)));for(let i=0;i<n;i++)orbs.push(newOrb());}let follow=1-Math.pow(.025,dt);camera.x+=(player.x-camera.x)*follow;camera.y+=(player.y-camera.y)*follow;let mobileView=document.body.classList.contains('touch-ui');let baseZoom=mobileView?(H>W?.74:.80):1;let targetZoom=baseZoom*(preset==='dynamic'?1-clamp((hyp(player.vx,player.vy)-240)/360,0,.12):1);zoom+=(targetZoom-zoom)*clamp(dt*3,0,1);if(elapsed>.15){elapsed=0;updateHud()}}
 function updateHud(){
  let s=hyp(player.vx,player.vy),required=player.level*60;
  UI.speed.innerHTML=`${kmh(s)} <small>km/h</small>`;

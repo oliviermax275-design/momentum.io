@@ -78,9 +78,9 @@ function collide(a,b){if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
  if(at&&bt){let va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);if(Math.abs(va-vb)<18)return;winner=va>vb?a:b;loser=winner===a?b:a}
  else {winner=at?a:b;loser=at?b:a}
  loser.invuln=5;loser.alive=false;
- if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id});}
+ if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id,x:loser.x,y:loser.y,level:loser.level,hue:loser.hue,killer:winner.id});}
  else {const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
- if(!winner.bot){const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
+ if(winner.bot){winner.score+=140+22*loser.level;winner.level=Math.min(100,1+Math.floor(winner.score/950));}else {const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
 }
 // Les bots anticipent les murs suivant leur vitesse (pas de modification des joueurs).
 function avoidWall(b){
@@ -104,8 +104,24 @@ function step(dt){serverTime+=dt;
  for(const b of botShips.values()){
   if(!b.alive){if(serverTime>=b.respawn){let x=spawn();b.x=x.x;b.y=x.y;b.invuln=2;b.vx=b.vy=0;b.alive=true}continue}
   b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
-  if(b.thought<=0){b.thought=rand(.22,.65);let target=[...ships.values()].sort((a,c)=>Math.hypot(a.x-b.x,a.y-b.y)-Math.hypot(c.x-b.x,c.y-b.y))[0];
-   b.target=target&&Math.hypot(target.x-b.x,target.y-b.y)<750?Math.atan2(target.y-b.y,target.x-b.x):b.angle+rand(-1.2,1.2)}
+  if(b.thought<=0){
+   // Agressivité distribuée : les bots cherchent surtout d'autres bots, pas exclusivement le joueur.
+   // Un cap persistant évite les zigzags à chaque tick.
+   b.thought=rand(.65,1.65);
+   const botTargets=[...botShips.values()].filter(q=>q!==b&&q.alive&&q.invuln<=0&&Math.hypot(q.x-b.x,q.y-b.y)<1350);
+   const humanTargets=[...ships.values()].filter(q=>q.alive&&q.invuln<=0&&Math.hypot(q.x-b.x,q.y-b.y)<1050);
+   let target=null;
+   // ~82 % des engagements choisis parmi les autres bots lorsqu'ils sont disponibles.
+   const pool=(botTargets.length&&(Math.random()<.82||!humanTargets.length))?botTargets:humanTargets;
+   if(pool.length){pool.sort((q,r)=>Math.hypot(q.x-b.x,q.y-b.y)-Math.hypot(r.x-b.x,r.y-b.y));target=pool[Math.floor(Math.random()*Math.min(3,pool.length))];}
+   if(!target&&botTargets.length)target=botTargets[0];
+   b.targetId=target?.id||null;
+   b.target=target?Math.atan2(target.y-b.y+target.vy*.22,target.x-b.x+target.vx*.22):b.angle+rand(-1.5,1.5);
+  }
+  // Réajuste doucement la visée vers la cible courante, y compris les bots.
+  const chase=b.targetId&&(botShips.get(b.targetId)||ships.get(b.targetId));
+  if(chase?.alive&&Math.hypot(chase.x-b.x,chase.y-b.y)<1500){b.target=Math.atan2(chase.y-b.y+chase.vy*.24,chase.x-b.x+chase.vx*.24);}
+
   for(const p of planets){let dx=b.x+b.vx*.5-p.x,dy=b.y+b.vy*.5-p.y,d=Math.hypot(dx,dy);if(d<p.r+130){b.target=Math.atan2(dy,dx)+.35;break}}
   const wallDanger=avoidWall(b);
   let diff=Math.atan2(Math.sin(b.target-b.angle),Math.cos(b.target-b.angle)),v=Math.hypot(b.vx,b.vy);
