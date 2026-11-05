@@ -1,29 +1,51 @@
-# MOMENTUM.IO — Arène partagée (bêta)
+# MOMENTUM.IO — Compte obligatoire (Render + Supabase Auth)
 
-Jeu **unique** sur `/` avec le moteur visuel et le pilotage de la dernière version solo.
+Cette version conserve le moteur MOMENTUM.IO, les bots prudents face aux murs et les 20 places de l'arène. Elle remplace l'accès invité par une **connexion obligatoire**, avec compte courriel/mot de passe ou Google et reconnexion automatique. La déconnexion se fait depuis **Profil → Se déconnecter**.
 
-- Une arène, maximum 20 vrais joueurs.
-- Complète jusqu'à 20 pilotes avec des bots synchronisés. Un bot est retiré à chaque arrivée, réapparait lorsqu'un joueur quitte.
-- Déplacements de joueurs et bots sur le même écran. Combat de pointe évalué côté serveur à partir des positions reçues.
-- Gravité et planètes partagées entre joueurs.
-- Réanimation : le bouton contient le prix directement.
+## 1. Installer les fichiers sur GitHub
 
-## Installer sur Render
+Dézippe et téléverse le **contenu** du ZIP à la racine du dépôt `momentum.io` : `server.js`, `package.json`, `render.yaml`, `README.md`, et le dossier `public/index.html`. Sur Render, conserve ton service existant : Root Directory vide, Build Command `npm install --omit=dev`, Start Command `npm start`. Les fichiers ne contiennent aucune clé secrète.
 
-Remplacer le contenu du dépôt GitHub par ces fichiers, dossier `public` inclus.
-Root Directory vide, Build Command `npm install --omit=dev`, Start Command `npm start`.
-Voir `/healthz` pour le statut du serveur.
+## 2. Créer Supabase (offre gratuite pour commencer)
 
-## Restrictions sérieuses de cette bêta
+1. Crée un projet dans https://supabase.com/dashboard et attends qu'il soit prêt.
+2. Va dans **Project Settings → API Keys**. Copie le **Project URL** (`https://...supabase.co`) et la **clé publique anon/publishable**. Ne copie **jamais** la clé `service_role` / `secret` dans GitHub ni dans le navigateur.
+3. Dans Render → ton service `momentum.io` → **Environment**, ajoute :
+   - `SUPABASE_URL` = ton URL de projet Supabase
+   - `SUPABASE_ANON_KEY` = ta clé publique anon/publishable
+4. Sauvegarde. Render redéploiera ou redémarrera le service. Vérifie `/auth-config` : `enabled` doit être `true`. **Tant que ces deux variables ne sont pas présentes, le jeu refuse la connexion (comportement voulu).**
 
-La physique de chaque pilote, la collecte d'orbes, les niveaux et la progression des jetons sont encore calculés dans le navigateur. Le serveur synchronise les positions, les bots, les planètes et décide les combats à partir des positions reçues, mais **il n'est pas encore autoritaire pour toutes les mécaniques**. Les triches et désynchronisations sont donc possibles. Le jeu n'est pas adapté aux classements compétitifs officiels ni aux paiements réels. Ne connectez pas Stripe en production à cette bêta.
+## 3. Configurer les connexions dans Supabase
 
-Le serveur Render gratuit peut se mettre en veille; sessions et bots sont en mémoire et sont remis à zéro au redémarrage.
+Dans **Authentication → URL Configuration** :
+- `Site URL` : `https://momentum-io-pu9t.onrender.com`
+- Ajoute `https://momentum-io-pu9t.onrender.com/**` dans les **Redirect URLs**.
 
-Pour une sortie publique commerciale, migrer toute la simulation et les inventaires vers un backend autoritaire avec stockage durable.
+Dans **Authentication → Providers → Email**, active les connexions courriel/mot de passe et **Confirm email**. Configure un service SMTP pour une vraie exploitation : l'envoi de courriels fourni en phase de test comporte des limites et n'est pas destiné à un lancement public massif.
 
-## Récompenses de classement de cette version
+### Google
 
-Le top 1 gagne **3 jetons/minute**, le top 2 **2 jetons/minute**, le top 3 **1 jeton/minute**. Aucun compteur de 12 points ni coffre supplémentaire lié au classement. Le coffre quotidien est indépendant.
+1. Dans Google Cloud Console, crée ou choisis un projet. Configure son **OAuth consent screen**.
+2. Crée un client OAuth **Web application**.
+3. Dans Supabase, **Authentication → Providers → Google**, active Google et copie l'URL de callback Supabase indiquée (`https://TONPROJET.supabase.co/auth/v1/callback`).
+4. Ajoute cette **URL Supabase** aux **Authorized redirect URIs** du client OAuth Google (et non `/` sur Render).
+5. Colle le **Client ID** et le **Client secret** Google dans le formulaire Google de Supabase, et enregistre. Ne mets pas le secret Google dans GitHub ou dans `index.html`.
+6. Pour le retour dans le jeu, conserve les URL Render autorisées dans Supabase → URL Configuration.
 
-En bêta, ces jetons sont calculés et sauvegardés localement dans le navigateur (ils ne sont **pas** des jetons sécurisés de compte serveur). Pour la version commerciale, les jetons de classement doivent être accordés par un serveur autoritaire et conservés dans la base sécurisée du joueur.
+## 4. Fonctionnement
+
+- Le joueur ne peut pas jouer sans une session Supabase valide. Il peut créer un compte courriel + mot de passe, se connecter, ou utiliser Google si Google OAuth est configuré.
+- Supabase gère les mots de passe (le projet MOMENTUM.IO ne les stocke **pas**). La bibliothèque Supabase JS sauvegarde et rafraîchit automatiquement la session dans le navigateur.
+- Lors de l'entrée dans l'arène, le serveur Render vérifie le jeton d'accès auprès de Supabase. Il refuse les entrées sans jeton ou avec un jeton invalide. Il limite les entrées simultanées à une connexion par compte.
+- Le bouton **Profil → Se déconnecter** efface la session d'authentification et ramène à l'écran de connexion.
+- Chaque compte dispose d'un cache local de records, de skins et de jetons distinct sur le navigateur, indexé par son identifiant de compte. **Ce cache n'est pas encore synchronisé entre appareils et n'est pas une économie sécurisée.** Les récompenses sont toujours simulées côté navigateur.
+
+## 5. Restrictions importantes avant commercialisation
+
+- Les jetons, les skins et les records **ne sont pas encore enregistrés dans une base de données partagée** : seule l'identité du compte est réellement persistée chez Supabase. Ne promets pas des skins synchronisés entre appareils à ce stade.
+- Le serveur ne calcule pas encore toute la physique, l'XP et les revenus de jetons : il n'est pas autoritaire pour l'économie. **Ne branche pas Stripe en mode réel**, car une version modifiée du navigateur pourrait fabriquer des jetons.
+- Les sauvegardes cloud de progression, l'antitriche complet, les protections anti-abus renforcées, les limites de trafic et les tests sous charge restent à faire.
+- Un hébergement gratuit Render peut se mettre en veille, occasionner un délai au premier chargement ou redémarrer.
+- Supabase JS est chargé depuis un CDN; une connexion Internet est nécessaire à l'authentification.
+
+Pour le lancement commercial, créer une table de profils sécurisée et un registre transactionnel de jetons côté serveur; effectuer l'attribution des récompenses par un moteur autoritaire et rendre tous les achats idempotents.

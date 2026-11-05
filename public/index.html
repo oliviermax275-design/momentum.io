@@ -529,7 +529,39 @@ body:not(.in-game) #admin-toggle,body:not(.in-game) #admin-panel{display:none!im
 .personal-records span{padding:10px 13px;border:1px solid #42708766;border-radius:11px;background:#071525ba;color:#9ebfce;font-weight:800;font-size:10px;letter-spacing:.6px}
 .personal-records b{display:block;font-size:17px;color:#e2f7ff;margin-top:3px;letter-spacing:0}
 @media(max-width:530px){.personal-records{gap:6px;margin:2px 0 9px}.personal-records span{padding:7px 9px;font-size:8px}.personal-records b{font-size:13px}}
-</style></head><body><canvas id="game"></canvas><div id="hud"><div id="top"><div class="panel" id="stats"><div id="brand">MOMENTUM<span>.IO</span> <span class="build-tag">SOLO</span></div>
+
+/* ACCES OBLIGATOIRE — identité vérifiée via Supabase Auth */
+#auth-gate{position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at 48% 34%,#14374b 0%,#030c19 67%);display:grid;place-items:center;padding:20px;overflow:auto;touch-action:auto}
+#auth-gate[hidden]{display:none!important}
+#auth-gate *{box-sizing:border-box;touch-action:auto}
+.auth-card{width:min(460px,100%);background:#0b2030ed;border:1px solid #507888;border-radius:22px;padding:clamp(22px,5vw,38px);box-shadow:0 25px 80px #0009;color:#f1faff}
+.auth-mark{font-size:30px;font-style:italic;font-weight:1000;letter-spacing:-1.5px;margin:0 0 5px}
+.auth-mark span{color:#7de6d4}
+.auth-kicker{color:#94bdcc;font-size:12px;font-weight:800;letter-spacing:1.5px;margin-bottom:22px}
+.auth-card h2{font-size:25px;margin:6px 0 6px;line-height:1.16}
+.auth-card p{font-size:14px;line-height:1.5;color:#a8c9d7;margin:0 0 21px}
+.auth-card input{display:block;width:100%;height:46px;border-radius:10px;border:1px solid #4d7486;background:#0c1b2b;color:white;padding:10px 14px;font:inherit;font-size:15px;margin-bottom:11px;outline-offset:2px}
+.auth-card button{width:100%;border-radius:11px;border:1px solid #487c93;min-height:45px;font-weight:900;font-size:14px;cursor:pointer;margin-top:9px;background:#102e40;color:white;box-shadow:none}
+.auth-card button.auth-main{background:linear-gradient(95deg,#a5fac7,#61d9f2);color:#062331;border:0}
+.auth-card button.auth-google{background:#edf4f7;color:#192633;border:0}
+.auth-card button.auth-subtle{border:0;background:transparent;color:#99cddd;font-size:13px;min-height:32px}
+#auth-message{min-height:22px;font-size:13px;margin-top:13px;color:#ffcbab;line-height:1.45}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:19px 0 7px;color:#85adbc;font-size:12px}
+.auth-divider:before,.auth-divider:after{content:'';height:1px;flex:1;background:#315062}
+#auth-working{font-size:14px;color:#b6d9e3;text-align:center;padding:24px}
+</style></head><body><div id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+ <div class="auth-card"><div class="auth-mark">MOMENTUM<span>.IO</span></div><div class="auth-kicker">TON COMPTE · TON ARÈNE</div>
+  <div id="auth-working">Vérification de ta connexion…</div>
+  <div id="auth-form" hidden><h2 id="auth-title">Bienvenue dans l’arène</h2><p>Crée un compte ou connecte-toi pour jouer. Ta session sera mémorisée.</p>
+   <form id="auth-email-form"><input id="auth-email" type="email" placeholder="Adresse courriel" autocomplete="email" required maxlength="254"/>
+   <input id="auth-password" type="password" placeholder="Mot de passe (8 caractères minimum)" autocomplete="current-password" required minlength="8" maxlength="128"/>
+   <button type="submit" class="auth-main" id="auth-submit">SE CONNECTER</button></form>
+   <button type="button" id="auth-mode" class="auth-subtle">Créer un compte avec courriel</button>
+   <div class="auth-divider">OU</div><button type="button" class="auth-google" id="auth-google">CONTINUER AVEC GOOGLE</button>
+   <button type="button" class="auth-subtle" id="auth-forgot">Mot de passe oublié ?</button>
+  </div><div id="auth-message" role="status" aria-live="polite"></div>
+ </div>
+</div><canvas id="game"></canvas><div id="hud"><div id="top"><div class="panel" id="stats"><div id="brand">MOMENTUM<span>.IO</span> <span class="build-tag">SOLO</span></div>
 <div id="speed">0 <small>km/h</small></div>
 <div class="stat-line lvl-line"><span id="level-current">NIVEAU 1</span><span id="xp-count">0 / 60 XP</span></div>
 <div id="xp-bar" role="progressbar" aria-label="Progression vers le prochain niveau"><div id="xp-fill"></div></div>
@@ -583,7 +615,7 @@ function netSend(o){if(arenaSocket?.readyState===1)try{arenaSocket.send(JSON.str
 function netConnect(){if(arenaSocket&&arenaSocket.readyState<=1)return;
  const scheme=location.protocol==='https:'?'wss:':'ws:';
  arenaState='connexion';arenaSocket=new WebSocket(scheme+'//'+location.host+'/live');
- arenaSocket.onopen=()=>{arenaState='connecté';if(playing&&player)netSend({type:'join',name:player.name,skin:profile?.equipped||'origin'});};
+ arenaSocket.onopen=()=>{arenaState='connecté';if(playing&&player)netSend({type:'join',name:player.name,skin:profile?.equipped||'origin',accessToken:window.momentumAuth?.token||''});};
  arenaSocket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}netReceive(m)};
  arenaSocket.onerror=()=>{arenaState='déconnecté'};
  arenaSocket.onclose=()=>{arenaState='déconnecté';arenaId=null;remoteById.clear();netPlayers=1;netBots=19;setTimeout(()=>{if(playing)netConnect()},1800)};
@@ -601,7 +633,7 @@ function netReceive(m){
  if(m.type==='reward'&&player?.alive){player.kills++;player.score+=140+22*(m.level||1);player.xp+=40;levelUp(player);player.energy=Math.min(100,player.energy+27);player.streak++;player.streakTime=8;playSound('kill');msg('ÉLIMINATION · COMBO ×'+player.streak,1.6);return;}
  if(m.type==='error')toast(m.message||'ERREUR RÉSEAU');
 }
-function netJoin(){netConnect();if(arenaSocket?.readyState===1)netSend({type:'join',name:player.name,skin:profile?.equipped||'origin'});}
+function netJoin(){netConnect();if(arenaSocket?.readyState===1)netSend({type:'join',name:player.name,skin:profile?.equipped||'origin',accessToken:window.momentumAuth?.token||''});}
 function netLeave(){netSend({type:'leave'});arenaId=null;remoteById.clear();}
 function netReport(dt){if(!arenaId||arenaSocket?.readyState!==1||!player?.alive)return;netNextSend+=dt;if(netNextSend<.055)return;netNextSend=0;netSend({type:'pilot',x:player.x,y:player.y,vx:player.vx,vy:player.vy,angle:player.angle,level:player.level,score:player.score,energy:player.energy,boosting:player.boosting,skin:profile?.equipped||'origin'});}
 const TAU=Math.PI*2;const WALL_CRASH_KMH=90;let lastWallImpactKmh=0;let WORLD=2700,MAX_BOTS=19,MAX_ORBS=240;const mouse={x:W*.67,y:H*.5,active:false};let boost=false,touchHeading=null;const rand=(a,b)=>a+Math.random()*(b-a),clamp=(a,l,h)=>Math.max(l,Math.min(h,a)),hyp=Math.hypot;let player,bots=[],orbs=[],planets=[],sparks=[],rings=[],floats=[],camera={x:0,y:0},best=0,nickname='PILOTE';try{nickname=String(localStorage.getItem('momentum-nick')||'PILOTE').replace(/[^\wÀ-ÿ -]/g,'').trim().slice(0,16)||'PILOTE'}catch(e){}try{best=Number(localStorage.getItem('momentumBest')||0)}catch(e){}const names=['Vortex','Nitro','Pulse','Arc','Glitch','Rift','Nova','Kite','Turbo','Bolt','Zephyr','Flash','Ion','Comet','Flux','Aero','Jinx','Vector','Rush','Ghost','Hyper','Quark','Zoom'];const hues=[15,25,48,115,165,195,215,245,275,300,325,350];function resize(){dpr=Math.min(devicePixelRatio||1,document.body.classList.contains('touch-ui')?1.5:2);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);if(touchHeading!==null){mouse.x=W/2+Math.cos(touchHeading)*180;mouse.y=H/2+Math.sin(touchHeading)*180}else if(!mouse.active){mouse.x=W*.7;mouse.y=H*.5}}addEventListener('resize',resize);resize();function unit(a){return{x:Math.cos(a),y:Math.sin(a)}}function pick(a){return a[Math.floor(rand(0,a.length))]}function entity(x,y,bot=false){let a=rand(0,TAU);return{x,y,vx:0,vy:0,angle:a,energy:100,level:1,xp:0,score:0,kills:0,hue:bot?pick(hues):180,name:bot?pick(names):nickname,r:bot?14:16,alive:true,invuln:2.2,bot,thought:0,targetAngle:a,boosting:false,streak:0,streakTime:0,bounceCooldown:0,levelPulse:0,trail:[]}}function orb(x,y,power,kind){
@@ -679,7 +711,7 @@ function floatReward(x,y,text,color){floats.push({x,y,text,color,life:.8});if(fl
   if(i<n*.7)orbs.push(newOrb());
   else orbs.push(newOrb());
  }
-}function spawnBot(){let x,y,tries=0;do{if(preset==='dynamic'&&player&&Math.random()<.8){let a=rand(0,TAU),d=rand(750,1800);x=clamp(player.x+Math.cos(a)*d,-WORLD*.92,WORLD*.92);y=clamp(player.y+Math.sin(a)*d,-WORLD*.92,WORLD*.92)}else{x=rand(-WORLD*.92,WORLD*.92);y=rand(-WORLD*.92,WORLD*.92)}}while(++tries<250&&((player&&hyp(x-player.x,y-player.y)<700)||planetAt(x,y,120)));let b=entity(x,y,true);b.score=Math.round(rand(0,1600));b.level=Math.max(1,1+Math.floor(b.score/220));b.r=14;b.energy=rand(40,100);return b}function reset(){if(playing&&!dead)recordCompletedRun();currentRunElapsed=0;runMaxSpeed=0;runRecorded=false;if(!profile)loginLocal(nickname);grantDailyChest();nickname=profile.nick;revivesThisRun=0;earnFraction=0;chestSaveClock=0;menuOpen=false;document.getElementById('leave-screen').hidden=true;startAudio();let wasPlaying=playing;WORLD=preset==='dynamic'?4200:2700;MAX_BOTS=19;MAX_ORBS=preset==='dynamic'?1500:750;bots=[];orbs=[];planets=[];sparks=[];rings=[];gameTime=0;elapsed=0;zoom=1;lastWallImpactKmh=0;player=entity(0,0);player.name=nickname;player.invuln=3;floats=[];buildPlanets();for(let i=0;i<MAX_BOTS;i++)bots.push(spawnBot());addOrbs(MAX_ORBS);camera={x:0,y:0};playing=true;paused=false;dead=false;UI.overlay.classList.add('hidden');if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();document.body.classList.add('in-game');document.getElementById('pause-touch').textContent='MENU';last=performance.now();if(!wasPlaying)requestAnimationFrame(frame);toast('ARÈNE PARTAGÉE · 20 PILOTES');netJoin();updateHud();playSound('start')}
+}function spawnBot(){let x,y,tries=0;do{if(preset==='dynamic'&&player&&Math.random()<.8){let a=rand(0,TAU),d=rand(750,1800);x=clamp(player.x+Math.cos(a)*d,-WORLD*.92,WORLD*.92);y=clamp(player.y+Math.sin(a)*d,-WORLD*.92,WORLD*.92)}else{x=rand(-WORLD*.92,WORLD*.92);y=rand(-WORLD*.92,WORLD*.92)}}while(++tries<250&&((player&&hyp(x-player.x,y-player.y)<700)||planetAt(x,y,120)));let b=entity(x,y,true);b.score=Math.round(rand(0,1600));b.level=Math.max(1,1+Math.floor(b.score/220));b.r=14;b.energy=rand(40,100);return b}function reset(){if(!window.momentumAuth?.user){window.momentumAuth?.show?.();return}if(playing&&!dead)recordCompletedRun();currentRunElapsed=0;runMaxSpeed=0;runRecorded=false;if(!profile)loginLocal(nickname);grantDailyChest();nickname=profile.nick;revivesThisRun=0;earnFraction=0;chestSaveClock=0;menuOpen=false;document.getElementById('leave-screen').hidden=true;startAudio();let wasPlaying=playing;WORLD=preset==='dynamic'?4200:2700;MAX_BOTS=19;MAX_ORBS=preset==='dynamic'?1500:750;bots=[];orbs=[];planets=[];sparks=[];rings=[];gameTime=0;elapsed=0;zoom=1;lastWallImpactKmh=0;player=entity(0,0);player.name=nickname;player.invuln=3;floats=[];buildPlanets();for(let i=0;i<MAX_BOTS;i++)bots.push(spawnBot());addOrbs(MAX_ORBS);camera={x:0,y:0};playing=true;paused=false;dead=false;UI.overlay.classList.add('hidden');if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();document.body.classList.add('in-game');document.getElementById('pause-touch').textContent='MENU';last=performance.now();if(!wasPlaying)requestAnimationFrame(frame);toast('ARÈNE PARTAGÉE · 20 PILOTES');netJoin();updateHud();playSound('start')}
 function visualTier(level){return level>=35?5:level>=20?4:level>=10?3:level>=5?2:level>=2?1:0}
 // Le thème (turquoise par défaut) et le palier visuel sont volontairement indépendants.
 function shipVisual(e){const tier=e===player?visualTier(e.level):0;const skin=e===player&&profile?SKINS.find(k=>k.id===profile.equipped):null;return {tier,hue:skin?skin.hue:(e===player?180+tier*4:e.hue)}}
@@ -729,7 +761,18 @@ function arenaWallCollision(e){
 function updateEntity(e,dt){if(!e.alive)return;e.prevX=e.x;e.prevY=e.y;e.prevAngle=e.angle;e.levelPulse=Math.max(0,(e.levelPulse||0)-dt);e.invuln=Math.max(0,e.invuln-dt);e.bounceCooldown=Math.max(0,e.bounceCooldown-dt);e.streakTime-=dt;if(e.streakTime<=0)e.streak=0;let want,boostNow;if(e.bot){e.thought-=dt;if(e.thought<=0){e.thought=rand(preset==='dynamic'?.16:.2,preset==='dynamic'?.55:.75);let nearest=null,dist=1e10;for(const o of orbs){let d=(o.x-e.x)**2+(o.y-e.y)**2;if(d<dist&&d<450*450){dist=d;nearest=o}}let target=player.alive?player:null;if(target&&hyp(e.x-target.x,e.y-target.y)<(preset==='dynamic'?370:260)){let selfSpeed=hyp(e.vx,e.vy),otherSpeed=hyp(target.vx,target.vy);e.targetAngle=Math.atan2(target.y-e.y,target.x-e.x)+(selfSpeed>otherSpeed*1.12?rand(-.2,.2):Math.PI+rand(-.4,.4))}else if(nearest)e.targetAngle=Math.atan2(nearest.y-e.y,nearest.x-e.x);else e.targetAngle+=rand(-1.2,1.2)}// Évitement anticipé des astéroïdes sans perdre le comportement original de poursuite.
  for(const p of planets){const px=e.x+e.vx*.45,py=e.y+e.vy*.45,dx=px-p.x,dy=py-p.y,d=hyp(dx,dy);
   if(d<p.r+e.r+90){const a=Math.atan2(dy,dx);e.targetAngle=a+Math.sign(Math.sin(e.targetAngle-a)||1)*.45;break;}}
- want=e.targetAngle+Math.sin(gameTime*.7+e.x*.01)*.025;boostNow=e.energy>20&&Math.random()<.016||e.boosting&&e.energy>8&&Math.random()<.975;e.boosting=boostNow}else{let dx=mouse.x-W/2,dy=mouse.y-H/2;want=hyp(dx,dy)<15?e.angle:Math.atan2(dy,dx);boostNow=boost&&e.energy>1;e.boosting=boostNow}if(e===player){if(boostNow&&!e._prevBoost)playSound('boost');e._prevBoost=boostNow}let speed=hyp(e.vx,e.vy);let angleDelta=Math.atan2(Math.sin(want-e.angle),Math.cos(want-e.angle));let turnFactor=clamp(1.85-speed/880,.55,1.6);let turn=clamp(angleDelta,-(2.95*turnFactor)*dt,(2.95*turnFactor)*dt);e.angle+=turn;let turnLoss=Math.abs(turn)*clamp(speed/170,0,1)*.085;let drag=Math.pow(.991,dt*60)*(1-turnLoss);e.vx*=drag;e.vy*=drag;let direction=unit(e.angle);let acceleration=(boostNow?560+285*levelGrowth(e.level):245+190*levelGrowth(e.level));if(boostNow)e.energy=Math.max(0,e.energy-35*dt);else e.energy=Math.min(100,e.energy+13*dt);e.vx+=direction.x*acceleration*dt;e.vy+=direction.y*acceleration*dt;let cap=topCap(e,boostNow);speed=hyp(e.vx,e.vy);if(speed>cap){e.vx*=cap/speed;e.vy*=cap/speed;speed=cap}planetGravity(e,dt);e.x+=e.vx*dt;e.y+=e.vy*dt;arenaWallCollision(e);if(!e.alive)return;planetCollisions(e);if(!e.alive)return;if(e===player&&e.boosting&&speed>310&&Math.random()<.28){let v=unit(e.angle),side=rand(-7,7);sparks.push({x:e.x-v.x*16-v.y*side,y:e.y-v.y*16+v.x*side,vx:-v.x*rand(30,95)+rand(-30,30),vy:-v.y*rand(30,95)+rand(-30,30),life:rand(.15,.34),max:1,hue:48,r:rand(1,2.4)})}e.trail.push({x:e.x,y:e.y,life:e===player?.65+visualTier(e.level)*.10:.6});if(e.trail.length>(e===player?65:30))e.trail.shift();for(let i=e.trail.length-1;i>=0;i--){e.trail[i].life-=dt;if(e.trail[i].life<=0)e.trail.splice(i,1)}for(let i=orbs.length-1;i>=0;i--){let o=orbs[i],dx=e.x-o.x,dy=e.y-o.y;if(dx*dx+dy*dy<(e.r+o.r+6)**2){orbs.splice(i,1);
+ // Anticiper le bord: à grande vitesse un bot doit amorcer son virage plus tôt.
+ const botSpeed=hyp(e.vx,e.vy),lead=clamp(botSpeed/210,1.25,2.6),edge=WORLD-e.r;
+ const predictionX=e.x+e.vx*lead,predictionY=e.y+e.vy*lead;
+ const alertMargin=clamp(botSpeed*2.35+220,460,1350);
+ const wallDanger=Math.abs(predictionX)>edge-alertMargin||Math.abs(predictionY)>edge-alertMargin||Math.abs(e.x)>edge-alertMargin||Math.abs(e.y)>edge-alertMargin;
+ if(wallDanger){
+  e.targetAngle=Math.atan2(-e.y,-e.x);
+  // Le ralentissement est réservé aux bots ; le vaisseau du joueur est inchangé.
+  if(Math.abs(e.x)>edge-340&&e.vx*Math.sign(e.x)>0)e.vx*=Math.pow(.91,dt*60);
+  if(Math.abs(e.y)>edge-340&&e.vy*Math.sign(e.y)>0)e.vy*=Math.pow(.91,dt*60);
+ }
+ want=e.targetAngle+Math.sin(gameTime*.7+e.x*.01)*.025;boostNow=!wallDanger&&(e.energy>20&&Math.random()<.016||e.boosting&&e.energy>8&&Math.random()<.975);e.boosting=boostNow;e.wallAvoiding=wallDanger}else{let dx=mouse.x-W/2,dy=mouse.y-H/2;want=hyp(dx,dy)<15?e.angle:Math.atan2(dy,dx);boostNow=boost&&e.energy>1;e.boosting=boostNow}if(e===player){if(boostNow&&!e._prevBoost)playSound('boost');e._prevBoost=boostNow}let speed=hyp(e.vx,e.vy);let angleDelta=Math.atan2(Math.sin(want-e.angle),Math.cos(want-e.angle));let turnFactor=clamp(1.85-speed/880,.55,1.6);if(e.bot&&e.wallAvoiding)turnFactor=Math.max(turnFactor,1.55);let turn=clamp(angleDelta,-(2.95*turnFactor)*dt,(2.95*turnFactor)*dt);e.angle+=turn;let turnLoss=Math.abs(turn)*clamp(speed/170,0,1)*.085;let drag=Math.pow(.991,dt*60)*(1-turnLoss);e.vx*=drag;e.vy*=drag;let direction=unit(e.angle);let acceleration=(boostNow?560+285*levelGrowth(e.level):245+190*levelGrowth(e.level));if(boostNow)e.energy=Math.max(0,e.energy-35*dt);else e.energy=Math.min(100,e.energy+13*dt);e.vx+=direction.x*acceleration*dt;e.vy+=direction.y*acceleration*dt;let cap=topCap(e,boostNow);if(e.bot&&e.wallAvoiding)cap=Math.min(cap,180);speed=hyp(e.vx,e.vy);if(speed>cap){e.vx*=cap/speed;e.vy*=cap/speed;speed=cap}planetGravity(e,dt);e.x+=e.vx*dt;e.y+=e.vy*dt;arenaWallCollision(e);if(!e.alive)return;planetCollisions(e);if(!e.alive)return;if(e===player&&e.boosting&&speed>310&&Math.random()<.28){let v=unit(e.angle),side=rand(-7,7);sparks.push({x:e.x-v.x*16-v.y*side,y:e.y-v.y*16+v.x*side,vx:-v.x*rand(30,95)+rand(-30,30),vy:-v.y*rand(30,95)+rand(-30,30),life:rand(.15,.34),max:1,hue:48,r:rand(1,2.4)})}e.trail.push({x:e.x,y:e.y,life:e===player?.65+visualTier(e.level)*.10:.6});if(e.trail.length>(e===player?65:30))e.trail.shift();for(let i=e.trail.length-1;i>=0;i--){e.trail[i].life-=dt;if(e.trail[i].life<=0)e.trail.splice(i,1)}for(let i=orbs.length-1;i>=0;i--){let o=orbs[i],dx=e.x-o.x,dy=e.y-o.y;if(dx*dx+dy*dy<(e.r+o.r+6)**2){orbs.splice(i,1);
  let xpGain=o.kind==='super'?54:o.kind==='xp'?17:7;
  let fuelGain=o.kind==='super'?39:o.kind==='boost'?21:5;
  e.score+=o.kind==='super'?45:10;
@@ -1022,7 +1065,7 @@ async function bootstrapCloudAccount(){if(location.protocol==='file:')return;try
 
 function safeNick(name){return String(name||'PILOTE').replace(/[^\wÀ-ÿ -]/g,'').trim().slice(0,16)||'PILOTE'}
 function saveProfiles(){try{localStorage.setItem(STORE_KEY,JSON.stringify(profiles));}catch(e){}}
-function loginLocal(name){nickname=safeNick(name);activeId=nickname.toLocaleLowerCase('fr-CA');profile=profiles[activeId]||{nick:nickname,tokens:0,best:0,owned:['origin','water','ember'],equipped:'origin',chestDay:'',totalEarned:0,bestSurvival:0,bestSpeed:0,totalKills:0,totalRuns:0,totalSurvival:0};profile.nick=nickname;for(const field of ['bestSurvival','bestSpeed','totalKills','totalRuns','totalSurvival'])profile[field]=Math.max(0,Number(profile[field])||0);profile.tokens=Number.isFinite(profile.tokens)?Math.max(0,Math.floor(profile.tokens)):0;profile.rewardChests=Number.isFinite(profile.rewardChests)?Math.max(0,Math.floor(profile.rewardChests)):0;profile.chestProgress=0;profile.owned=Array.isArray(profile.owned)?profile.owned:['origin'];for(const free of ['origin','water','ember'])if(!profile.owned.includes(free))profile.owned.push(free);if(!profile.owned.includes(profile.equipped))profile.equipped='origin';profiles[activeId]=profile;saveProfiles();try{localStorage.setItem(SESSION_KEY,activeId)}catch(e){};return profile}
+function loginLocal(name){nickname=safeNick(name);activeId=window.momentumAuth?.user?'auth:'+window.momentumAuth.user.id:nickname.toLocaleLowerCase('fr-CA');profile=profiles[activeId]||{nick:nickname,tokens:0,best:0,owned:['origin','water','ember'],equipped:'origin',chestDay:'',totalEarned:0,bestSurvival:0,bestSpeed:0,totalKills:0,totalRuns:0,totalSurvival:0};profile.nick=nickname;for(const field of ['bestSurvival','bestSpeed','totalKills','totalRuns','totalSurvival'])profile[field]=Math.max(0,Number(profile[field])||0);profile.tokens=Number.isFinite(profile.tokens)?Math.max(0,Math.floor(profile.tokens)):0;profile.rewardChests=Number.isFinite(profile.rewardChests)?Math.max(0,Math.floor(profile.rewardChests)):0;profile.chestProgress=0;profile.owned=Array.isArray(profile.owned)?profile.owned:['origin'];for(const free of ['origin','water','ember'])if(!profile.owned.includes(free))profile.owned.push(free);if(!profile.owned.includes(profile.equipped))profile.equipped='origin';profiles[activeId]=profile;saveProfiles();try{localStorage.setItem(SESSION_KEY,activeId)}catch(e){};return profile}
 let currentRunElapsed=0,runMaxSpeed=0,runRecorded=false;
 function durationLabel(seconds){const n=Math.max(0,Math.floor(Number(seconds)||0)),h=Math.floor(n/3600),m=Math.floor(n%3600/60),s=n%60;return h?`${h} h ${String(m).padStart(2,'0')} min`:`${m} min ${String(s).padStart(2,'0')} s`}
 function captureRunStats(){
@@ -1040,7 +1083,7 @@ function recordCompletedRun(){
  profile.totalSurvival=(profile.totalSurvival||0)+currentRunElapsed;
  saveProfiles();
 }
-function logoutLocal(){try{localStorage.removeItem(SESSION_KEY)}catch(e){};activeId=null;profile=null;nickname='PILOTE';renderLobby('account')}
+window.momentumAccountBridge={loginLocal:(name)=>{loginLocal(name);renderLobby('play')},renderProfile:()=>renderLobby('account'),logoutLocal:()=>logoutLocal()};function logoutLocal(){try{localStorage.removeItem(SESSION_KEY)}catch(e){};activeId=null;profile=null;nickname='PILOTE';renderLobby('account')}
 function todayLocal(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
 function addTokens(n){if(!profile)return;const grant=Math.max(0,Math.floor(Number(n)||0));profile.tokens+=grant;profile.totalEarned=(profile.totalEarned||0)+grant;saveProfiles();syncWallet()}
 function chargeTokens(n){if(cloudAccount)return false;if(DEMO_UNLIMITED_TOKENS)return true;if(!profile||profile.tokens<n)return false;profile.tokens-=n;saveProfiles();syncWallet();return true}
@@ -1123,7 +1166,7 @@ function dismissLoot(){lootAnimationId++;const pop=document.getElementById('loot
 document.getElementById('loot-collect').addEventListener('click',dismissLoot);
 document.getElementById('loot-close').addEventListener('click',dismissLoot);
 
-function accountView(){return `<section class="content-page account-screen"><div class="page-heading"><div><span class="page-eyebrow">${cloudAccount?'COMPTE CONNECTÉ':'PROFIL LOCAL'}</span><h2>Mon profil</h2><p>${cloudAccount?'Compte synchronisé · statistiques solo locales':'Tes records sur cet appareil'}</p></div></div><div class="account-card"><div class="profile-emblem" aria-hidden="true">M</div><h3>${profile?escapeHTML(profile.nick):'Invité'}</h3><div class="menu-stat"><span>Record</span><strong>${Math.max(best,profile?.best||0).toLocaleString('fr-CA')}</strong></div><div class="menu-stat"><span>Survie maximale</span><strong>${durationLabel(profile?.bestSurvival||0)}</strong></div><div class="menu-stat"><span>Vitesse record</span><strong>${Math.round(profile?.bestSpeed||0)} km/h</strong></div><div class="menu-stat"><span>Parties jouées</span><strong>${profile?.totalRuns||0}</strong></div><div class="menu-stat"><span>Éliminations totales</span><strong>${profile?.totalKills||0}</strong></div><div class="menu-stat"><span>Temps total joué</span><strong>${durationLabel(profile?.totalSurvival||0)}</strong></div><div class="menu-stat"><span>Skin</span><strong>${escapeHTML(SKINS.find(k=>k.id===profile?.equipped)?.name||'ORIGINE')}</strong></div><label class="input-label" for="local-nick">PSEUDO</label><input id="local-nick" type="text" maxlength="16" value="${escapeHTML(profile?.nick||nickname)}" placeholder="Ton pseudo"><div class="provider-grid"><button type="button" id="local-login">ENREGISTRER LE PROFIL</button><button type="button" id="logout-profile" ${profile?'':'disabled'}>SE DÉCONNECTER</button></div><p class="local-disclaimer">${cloudAccount?'Compte serveur : jetons, coffres et skins synchronisés. La progression solo et les records sont encore locaux.':'Profil local : records sauvegardés sur cet appareil. La connexion entre appareils nécessite le serveur inclus.'}</p><div style="padding-top:12px"><a href="/account" onclick="if(!window.momentumCloudReady){alert('La connexion en ligne demande de démarrer le serveur fourni dans le ZIP. La version HTML seule conserve les données sur cet appareil.');return false;}" style="color:#9be8ff;font-size:12px">${cloudAccount?'GÉRER MON COMPTE EN LIGNE':'CONNEXION COURRIEL / GOOGLE (SERVEUR)'}</a></div></div></section>`}
+function accountView(){return `<section class="content-page account-screen"><div class="page-heading"><div><span class="page-eyebrow">${window.momentumAuth?.user?'COMPTE CONNECTÉ':'PROFIL LOCAL'}</span><h2>Mon profil</h2><p>${window.momentumAuth?.user?'Identité vérifiée · records et jetons en cache sur cet appareil':'Tes records sur cet appareil'}</p></div></div><div class="account-card"><div class="profile-emblem" aria-hidden="true">M</div><h3>${profile?escapeHTML(profile.nick):'Invité'}</h3><div class="menu-stat"><span>Record</span><strong>${Math.max(best,profile?.best||0).toLocaleString('fr-CA')}</strong></div><div class="menu-stat"><span>Survie maximale</span><strong>${durationLabel(profile?.bestSurvival||0)}</strong></div><div class="menu-stat"><span>Vitesse record</span><strong>${Math.round(profile?.bestSpeed||0)} km/h</strong></div><div class="menu-stat"><span>Parties jouées</span><strong>${profile?.totalRuns||0}</strong></div><div class="menu-stat"><span>Éliminations totales</span><strong>${profile?.totalKills||0}</strong></div><div class="menu-stat"><span>Temps total joué</span><strong>${durationLabel(profile?.totalSurvival||0)}</strong></div><div class="menu-stat"><span>Skin</span><strong>${escapeHTML(SKINS.find(k=>k.id===profile?.equipped)?.name||'ORIGINE')}</strong></div><label class="input-label" for="local-nick">PSEUDO</label><input id="local-nick" type="text" maxlength="16" value="${escapeHTML(profile?.nick||nickname)}" placeholder="Ton pseudo"><div class="provider-grid"><button type="button" id="local-login">ENREGISTRER LE PROFIL</button><button type="button" id="logout-profile" ${profile?'':'disabled'}>SE DÉCONNECTER</button></div><p class="local-disclaimer">Compte connecté : tes records, jetons et skins sont encore enregistrés sur cet appareil. La synchronisation complète viendra avec la base de données sécurisée.</p></div></section>`}
 
 const TUTORIAL_KEY='momentum-tutorial-complete-v2';
 function tutorialCompleted(){try{return localStorage.getItem(TUTORIAL_KEY)==='1'}catch(e){return false}}
@@ -1269,7 +1312,7 @@ function startLobbyAnimation(){
  }
  requestAnimationFrame(drawBackdrop);
 }
-if(!profile)loginLocal('PILOTE');renderLobby('play');startLobbyAnimation();bootstrapCloudAccount();
+renderLobby('play');startLobbyAnimation();
 addEventListener('mousemove',e=>{if(document.body.classList.contains('touch-ui'))return;mouse.x=e.clientX;mouse.y=e.clientY;mouse.active=true;if(tutorialStep===0)tutorialMove=true});
 addEventListener('keydown',e=>{
  if(e.target?.matches?.('input,select,textarea'))return;
@@ -1294,4 +1337,45 @@ boostTouch.addEventListener('pointerup',stopBoost);boostTouch.addEventListener('
 document.getElementById('pause-touch').addEventListener('click',e=>{e.preventDefault();toggleExitMenu()});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 function attract(){ctx.fillStyle='#080f21';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#133a55';for(let i=0;i<Math.max(W,H);i+=75){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke()}}attract();})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+<script defer>
+(()=>{'use strict';
+ const gate=document.getElementById('auth-gate'),working=document.getElementById('auth-working'),form=document.getElementById('auth-form'),msg=document.getElementById('auth-message');
+ const email=document.getElementById('auth-email'),password=document.getElementById('auth-password'),submit=document.getElementById('auth-submit'),mode=document.getElementById('auth-mode');
+ const auth={user:null,token:null,show:()=>{gate.hidden=false}};window.momentumAuth=auth;
+ let client=null,signup=false;
+ function message(s){msg.textContent=s}
+ function showForm(){working.hidden=true;form.hidden=false;gate.hidden=false}
+ function applySession(session){const previous=auth.user?.id||null;auth.user=session?.user||null;auth.token=session?.access_token||null;
+  if(auth.user){ const nick=String(auth.user.user_metadata?.display_name||auth.user.email?.split('@')[0]||'PILOTE').slice(0,16);
+   // Every authenticated user gets a private local cache; the server still validates who enters the arena.
+   if(previous!==auth.user.id)window.momentumAccountBridge?.loginLocal(nick);gate.hidden=true;message('');
+  }else{gate.hidden=false;showForm();}
+ }
+ async function boot(){try{
+  const r=await fetch('/auth-config',{cache:'no-store'}),cfg=await r.json();
+  if(!r.ok||!cfg.enabled){working.textContent='Connexion indisponible : configure SUPABASE_URL et SUPABASE_ANON_KEY dans Render.';return}
+  if(!window.supabase?.createClient){working.textContent='Impossible de charger le module de connexion. Vérifie ta connexion Internet.';return}
+  client=window.supabase.createClient(cfg.url,cfg.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
+  client.auth.onAuthStateChange((_event,session)=>{applySession(session)});
+  const {data,error}=await client.auth.getSession();if(error)throw error;applySession(data.session);
+ }catch(e){working.textContent='Connexion indisponible. Réessaie en actualisant la page.';message(e.message||'Erreur de connexion')}}
+ form.addEventListener('submit',async e=>{e.preventDefault();if(!client)return;submit.disabled=true;message('');try{
+  const args={email:email.value.trim(),password:password.value};
+  const {data,error}=signup?await client.auth.signUp(args):await client.auth.signInWithPassword(args);
+  if(error)throw error;
+  if(signup&&!data.session)message('Compte créé. Vérifie ton courriel pour confirmer ton inscription, puis connecte-toi.');
+  else if(data.session)applySession(data.session);
+ }catch(err){message(err.message||'Impossible de te connecter')}finally{submit.disabled=false}});
+ mode.addEventListener('click',()=>{signup=!signup;submit.textContent=signup?'CRÉER MON COMPTE':'SE CONNECTER';mode.textContent=signup?'J’ai déjà un compte':'Créer un compte avec courriel';message('')});
+ document.getElementById('auth-google').addEventListener('click',async()=>{if(!client)return;message('Redirection vers Google…');const {error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/'} });if(error)message(error.message)});
+ document.getElementById('auth-forgot').addEventListener('click',async()=>{if(!client)return;if(!email.value.trim()){message('Entre d’abord ton courriel.');return}const {error}=await client.auth.resetPasswordForEmail(email.value.trim(),{redirectTo:location.origin+'/'});message(error?error.message:'Si ce compte existe, un courriel de réinitialisation sera envoyé.')});
+ document.addEventListener('click',async e=>{const target=e.target.closest?.('#logout-profile');if(!target)return;
+  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+  try{await client?.auth.signOut()}catch(_){}auth.user=null;auth.token=null;window.momentumAccountBridge?.logoutLocal();gate.hidden=false;showForm();
+ },true);
+ window.addEventListener('focus',async()=>{if(client){const {data}=await client.auth.getSession();if(!data.session)applySession(null)}});
+ boot();
+})();
 </script></body></html>

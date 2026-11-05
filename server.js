@@ -2,6 +2,17 @@
 // MOMENTUM.IO shared arena beta. Node 20+, no production payments.
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const PORT=Number(process.env.PORT||3000),ROOT=path.join(__dirname,'public'),WORLD=4200,TAU=Math.PI*2;
+const AUTH_URL=String(process.env.SUPABASE_URL||'').replace(/\/$/,''),AUTH_KEY=String(process.env.SUPABASE_ANON_KEY||'');
+const AUTH_ENABLED=!!(AUTH_URL&&AUTH_KEY&&/^https:\/\//.test(AUTH_URL));
+async function verifyToken(token){
+ if(!AUTH_ENABLED||typeof token!=='string'||token.length<20||token.length>6000)return null;
+ try{
+  const response=await fetch(AUTH_URL+'/auth/v1/user',{headers:{apikey:AUTH_KEY,Authorization:'Bearer '+token},signal:AbortSignal.timeout(7000)});
+  if(!response.ok)return null;
+  const user=await response.json();return user&&typeof user.id==='string'&&user.id.length<100?user:null;
+ }catch{return null}
+}
+
 const peers=new Set(),ships=new Map(),botShips=new Map();let nextId=0,serverTime=0;
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function WSframe(obj){const b=Buffer.from(JSON.stringify(obj));let h;if(b.length<126)h=Buffer.from([129,b.length]);else if(b.length<65536)h=Buffer.from([129,126,b.length>>8,b.length&255]);else{h=Buffer.alloc(10);h[0]=129;h[1]=127;h.writeBigUInt64BE(BigInt(b.length),2)}return Buffer.concat([h,b])}
@@ -25,11 +36,19 @@ function createBot(){let p=spawn(),id='bot-'+(++nextId);return {id,bot:true,name
 function fillSlots(){const want=Math.max(0,20-ships.size);while(botShips.size>want)botShips.delete(botShips.keys().next().value);while(botShips.size<want){const b=createBot();botShips.set(b.id,b)}}
 function pack(p){return {id:p.id,bot:!!p.bot,name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,hue:p.hue,level:p.level,score:p.score,energy:p.energy,boosting:p.boosting,invuln:p.invuln}}
 function depart(c){if(!c.joined)return;c.joined=false;ships.delete(c.id);fillSlots()}
-function receive(c,m){if(!m||typeof m!=='object')return;
+async function receive(c,m){if(!m||typeof m!=='object')return;
  if(m.type==='leave'){depart(c);return}
  if(m.type==='join'){
+  if(c.authPending)return;
+  c.authPending=true;
+  const user=await verifyToken(m.accessToken);
+  c.authPending=false;
+  if(!user){send(c,{type:'error',message:'Connexion requise : reconnecte-toi depuis Profil.'});return}
   if(c.joined){depart(c)}
   if(ships.size>=20){send(c,{type:'error',message:'Arène pleine (20/20)'});return}
+  // One active connection per authenticated user (prevents duplicate simultaneous slots).
+  for(const other of peers)if(other!==c&&other.joined&&other.userId===user.id){depart(other);send(other,{type:'error',message:'Compte connecté sur un autre appareil'});}
+  c.userId=user.id;
   const pos=spawn();c.joined=true;c.id=c.id||'p-'+(++nextId);
   const p={id:c.id,bot:false,name:safeName(m.name),x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true};
   ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'ARÈNE PRINCIPALE',spawn:pos,planets});return;
@@ -63,6 +82,23 @@ function collide(a,b){if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
  else {const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
  if(!winner.bot){const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
 }
+// Les bots anticipent les murs suivant leur vitesse (pas de modification des joueurs).
+function avoidWall(b){
+ const speed=Math.hypot(b.vx,b.vy),edge=WORLD-16;
+ const ahead=Math.max(1.25,Math.min(2.5,speed/220));
+ const margin=Math.max(450,Math.min(1250,speed*2.2+210));
+ const px=b.x+b.vx*ahead,py=b.y+b.vy*ahead;
+ const dangerX=Math.abs(px)>edge-margin||Math.abs(b.x)>edge-margin;
+ const dangerY=Math.abs(py)>edge-margin||Math.abs(b.y)>edge-margin;
+ if(!dangerX&&!dangerY)return false;
+ // Vise le centre, puis ajuste la trajectoire latéralement pour ne pas vibrer sur le mur.
+ const toX=-b.x,toY=-b.y;
+ let heading=Math.atan2(toY,toX);
+ const futureX=b.x+Math.cos(heading)*300,futureY=b.y+Math.sin(heading)*300;
+ for(const p of planets){if(Math.hypot(futureX-p.x,futureY-p.y)<p.r+85){heading+=.55;break}}
+ b.target=heading;
+ return true;
+}
 function step(dt){serverTime+=dt;
  for(const p of planets){p.x+=p.vx*dt;p.y+=p.vy*dt;for(const axis of ['x','y'])if(Math.abs(p[axis])>WORLD-p.r-150){p[axis]=clamp(p[axis],-WORLD+p.r+150,WORLD-p.r-150);p['v'+axis]*=-1}}
  for(const b of botShips.values()){
@@ -71,13 +107,22 @@ function step(dt){serverTime+=dt;
   if(b.thought<=0){b.thought=rand(.22,.65);let target=[...ships.values()].sort((a,c)=>Math.hypot(a.x-b.x,a.y-b.y)-Math.hypot(c.x-b.x,c.y-b.y))[0];
    b.target=target&&Math.hypot(target.x-b.x,target.y-b.y)<750?Math.atan2(target.y-b.y,target.x-b.x):b.angle+rand(-1.2,1.2)}
   for(const p of planets){let dx=b.x+b.vx*.5-p.x,dy=b.y+b.vy*.5-p.y,d=Math.hypot(dx,dy);if(d<p.r+130){b.target=Math.atan2(dy,dx)+.35;break}}
+  const wallDanger=avoidWall(b);
   let diff=Math.atan2(Math.sin(b.target-b.angle),Math.cos(b.target-b.angle)),v=Math.hypot(b.vx,b.vy);
-  b.angle+=clamp(diff,-2.5*dt,2.5*dt);b.boosting=Math.sin(serverTime*.7+b.hue)>.25;
+  b.angle+=clamp(diff,-(wallDanger?4.3:2.5)*dt,(wallDanger?4.3:2.5)*dt);b.boosting=!wallDanger&&Math.sin(serverTime*.7+b.hue)>.25;
   b.energy=clamp(b.energy+(b.boosting?-24:14)*dt,0,100);
   let acc=b.boosting&&b.energy>0?520:270;
   b.vx=b.vx*Math.pow(.991,dt*60)+Math.cos(b.angle)*acc*dt;
   b.vy=b.vy*Math.pow(.991,dt*60)+Math.sin(b.angle)*acc*dt;
-  v=Math.hypot(b.vx,b.vy);let cap=b.boosting?440:326;if(v>cap){b.vx*=cap/v;b.vy*=cap/v}
+  v=Math.hypot(b.vx,b.vy);let cap=b.boosting?440:326;
+  if(wallDanger){
+   cap=Math.min(cap,185);
+   // A l'approche des murs, réduire la composante allant vers l'extérieur.
+   const safe=WORLD-16-290;
+   if(Math.abs(b.x)>safe&&b.vx*Math.sign(b.x)>0)b.vx*=Math.pow(.92,dt*60);
+   if(Math.abs(b.y)>safe&&b.vy*Math.sign(b.y)>0)b.vy*=Math.pow(.92,dt*60);
+  }
+  v=Math.hypot(b.vx,b.vy);if(v>cap){b.vx*=cap/v;b.vy*=cap/v}
   for(const p of planets){let dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy);if(d>p.r&&d<p.r*3.25){let inf=Math.pow(1-(d-p.r)/(p.r*2.25),1.7),s=Math.hypot(b.vx,b.vy);b.vx+=dx/d*335*inf*dt;b.vy+=dy/d*335*inf*dt;let ns=Math.hypot(b.vx,b.vy);if(ns){b.vx*=s/ns;b.vy*=s/ns}}}
   b.x+=b.vx*dt;b.y+=b.vy*dt;
   for(const p of planets){let dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),lim=p.r+13;if(d<lim){let nx=dx/(d||1),ny=dy/(d||1);b.x=p.x+nx*lim;b.y=p.y+ny*lim;let dot=b.vx*nx+b.vy*ny;if(dot<0){b.vx-=1.7*dot*nx;b.vy-=1.7*dot*ny}b.vx*=.65;b.vy*=.65;}}
@@ -89,6 +134,10 @@ function step(dt){serverTime+=dt;
 }
 const app=http.createServer((req,res)=>{
  let url;try{url=new URL(req.url,'http://localhost')}catch{res.writeHead(400).end();return}
+ if(url.pathname==='/auth-config'){
+  res.writeHead(200,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});
+  res.end(JSON.stringify({enabled:AUTH_ENABLED,url:AUTH_ENABLED?AUTH_URL:'',anonKey:AUTH_ENABLED?AUTH_KEY:''}));return;
+ }
  if(url.pathname==='/healthz'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({ok:true,humans:ships.size,bots:botShips.size,capacity:20,mode:'beta-multiplayer'}));return}
  const urlPath=url.pathname==='/'?'/index.html':url.pathname;
  let full=path.resolve(ROOT,'.'+decodeURIComponent(urlPath));if(!full.startsWith(ROOT+path.sep)){res.writeHead(403).end();return}
@@ -96,8 +145,10 @@ const app=http.createServer((req,res)=>{
 });
 function consume(c,chunk){c.buffer=Buffer.concat([c.buffer,chunk]);while(c.buffer.length>=2){const b=c.buffer,op=b[0]&15,masked=!!(b[1]&128);let len=b[1]&127,off=2;if(len===126){if(b.length<4)return;len=b.readUInt16BE(2);off=4}else if(len===127){if(b.length<10)return;let n=b.readBigUInt64BE(2);if(n>65536n){c.socket.destroy();return}len=Number(n);off=10}if(!masked||len>65536){c.socket.destroy();return}if(b.length<off+4+len)return;const key=b.subarray(off,off+4),msg=Buffer.from(b.subarray(off+4,off+4+len));for(let i=0;i<msg.length;i++)msg[i]^=key[i%4];c.buffer=b.subarray(off+4+len);if(op===8){c.socket.end();return}if(op===9){c.socket.write(Buffer.from([0x8a,0]));continue}if(op===1){try{receive(c,JSON.parse(msg.toString('utf8')))}catch{}}}}
 app.on('upgrade',(req,socket)=>{if(req.url!=='/live'||req.headers.upgrade?.toLowerCase()!=='websocket'||!req.headers['sec-websocket-key']){socket.destroy();return}
+ const origin=req.headers.origin;
+ if(origin){try{const originHost=new URL(origin).host;if(originHost!==req.headers.host){socket.destroy();return}}catch{socket.destroy();return}}
  const accept=crypto.createHash('sha1').update(req.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
- const c={socket,buffer:Buffer.alloc(0),joined:false,id:null};peers.add(c);socket.on('data',b=>consume(c,b));socket.on('error',()=>{});socket.on('close',()=>{depart(c);peers.delete(c)});
+ const c={socket,buffer:Buffer.alloc(0),joined:false,id:null,userId:null,authPending:false};peers.add(c);socket.on('data',b=>consume(c,b));socket.on('error',()=>{});socket.on('close',()=>{depart(c);peers.delete(c)});
 });
 fillSlots();let prev=Date.now(),broadcastElapsed=0;setInterval(()=>{let now=Date.now(),dt=clamp((now-prev)/1000,0,.07);prev=now;step(dt);broadcastElapsed+=dt;if(broadcastElapsed>.08){broadcastElapsed=0;broadcast({type:'state',humans:ships.size,bots:botShips.size,ships:[...ships.values(),...botShips.values()].filter(x=>x.alive).map(pack),planets})}},1000/30);
 app.listen(PORT,'0.0.0.0',()=>console.log('MOMENTUM.IO beta shared arena listening on '+PORT));
