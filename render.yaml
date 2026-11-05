@@ -1,8 +1,9 @@
 services:
   - type: web
-    name: momentum-io-amies
+    name: momentum-io
     runtime: node
     plan: free
     buildCommand: npm install --omit=dev
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
