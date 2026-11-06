@@ -1,30 +1,30 @@
-# MOMENTUM.IO — IA variée et collisions corrigées (bêta)
+# MOMENTUM.IO — Bots plus compétitifs + fluidité + contacts
 
-Cette archive contient **le jeu entier**, `public/index.html`, et le serveur `server.js` adapté à Render.
+Version créée à partir de l'archive fournie `MOMENTUM_IO_BOTS_NATURELS_COLLISIONS(1).zip`.
 
-## Corrections
-- Bots avec profils de jeu stables (chasseur, équilibré, opportuniste, prudent), alternant attaque, interception, exploration et brève esquive.
-- Poursuites temporisées, choix de cibles moins répétitif, possibilité d'attaquer d'autres bots, passage d'attaque court avant de réévaluer.
-- Détection de contact pointe/vaisseau sur la **trajectoire entre deux ticks** du serveur, pour réduire les impacts manqués à haute vitesse.
-- Évitement de murs, planètes, affichage lissé et loot des bots conservés.
-- Connexion Supabase/Google et menus conservés, sans changer la physique du vaisseau du joueur.
+## Changements
 
-## Installer sur ton Render existant
-1. Conserve ton dépôt GitHub et ton service Render.
-2. Décompresse le ZIP. Téléverse son contenu à la racine du dépôt GitHub, en conservant le répertoire `public/`.
-3. Commit sur `main`, puis attends `Live` sur Render.
-4. Garde les variables `SUPABASE_URL` et `SUPABASE_ANON_KEY` déjà configurées.
-5. Ouvre le jeu sur l'URL Render existante et teste plusieurs combats à grande vitesse, idéalement avec deux vrais navigateurs.
+- **IA des bots :** retour à une poursuite directe et à la recherche de cibles variées, sans séquences artificielles « poursuite → passe → fuite ». Vitesses, virages et boosts rehaussés pour rendre les adversaires plus difficiles. Ils peuvent attaquer d'autres bots et être éliminés.
+- **Murs :** anticipation du bord uniquement quand un vaisseau s'en approche en allant vers l'extérieur. Pas de ralentissement massif dans une grande bande de l'arène.
+- **Collisions serveur :** détection de l'intersection des coques orientées et de la pointe, par balayage de la trajectoire. Contacts latéraux amortis ; la pointe élimine sa cible ; pointe contre pointe : le plus rapide l'emporte.
+- **Fluidité :** mini-carte dessinée environ 20 fois/s au lieu de chaque image, rendu adaptatif sur PC et téléphone en cas de faible FPS, résolution de dessin maximale de 1,5×, 20 mises à jour/s des positions serveur, 30 transmissions/s du joueur et synchronisation des planètes plus espacée (les planètes continuent à bouger dans le navigateur).
+- **Conservés :** écrans, boutique, Google/Supabase, planètes, loot et commandes du joueur.
 
-## Limites à connaître
-Il s'agit toujours d'une **bêta multijoueur**. Les mouvements des vrais joueurs viennent du client, et le serveur n'est pas entièrement autoritaire. La correction des contacts réduit les impacts traversants, mais la latence réseau et les corrections visuelles peuvent en laisser apparaître. Les soldes de jetons / récompenses ne sont pas assez sécurisés pour activer les paiements réels. Ne branche pas Stripe en production à cette version.
+## Vérifications locales
 
-## Correctif de collisions (pointe, arrière et traversées)
+- Vérification de syntaxe de `server.js` et du JavaScript du jeu.
+- Simulation du serveur sur 150 secondes avec 20 bots : poursuite, boosts, impacts contre les murs et éliminations entre bots surveillés. Aucune occurrence sur le bord physique de l'arène lors de la simulation exécutée.
+- Tests de collisions : pointe par l'arrière, pointe contre pointe, traversée rapide, absence de collision entre vaisseaux éloignés.
+- Test de rendu Chromium à 1600×900 et DPR 2 : deux comparaisons montrent une amélioration du compteur FPS dans ce banc d'essai (ancienne version 37 à 48 FPS, version modifiée environ 60 FPS). Il ne s'agit **pas** d'un test de FPS sur ton ordinateur ni sur Render.
+- Tests réalisés sans erreur JavaScript visible dans le banc d'essai. La latence réelle de Render reste à vérifier.
 
-- Le serveur détecte les contacts selon les **polygones réels** des vaisseaux, et non leur centre seulement.
-- Les mouvements entre deux mises à jour sont échantillonnés de façon adaptative (y compris le point de rapprochement maximal) pour limiter les traversées.
-- Pointe contre arrière/flanc : l'attaquant élimine la cible; pointe contre pointe : avantage à la vitesse; flanc contre flanc : contact et rebond.
-- Le rendu des vaisseaux distants rattrape plus rapidement leurs positions réseau. Il peut rester des écarts visibles en cas de forte latence, et la simulation de la physique des joueurs demeure partiellement locale dans cette bêta.
-- Tests de régression fournis dans `tests/collisions.test.js` (Node.js). Pour les lancer : `npm test`.
+## Déployer
 
-Le correctif conserve les contrôles, les planètes, les comptes Supabase et l'économie de la version fournie. N'activez pas de paiements réels dans cette bêta.
+1. Décompresse le ZIP.
+2. Téléverse seulement les fichiers modifiés `server.js` et `public/index.html` dans les mêmes chemins sur GitHub. `README.md` est facultatif.
+3. Confirme le commit ; sur Render, vérifie que le bon commit affiche « Live ».
+4. Recharge complètement le jeu (Ctrl + Maj + R) et teste les combats.
+
+**Important :** l'archive source fournie est la version « BOTS_NATURELS_COLLISIONS ». Si ton dépôt GitHub contient des modifications créées ensuite, notamment un autre correctif de collisions, compare les fichiers avant de remplacer la version déployée. Cette archive ne récupère pas automatiquement d'éventuels changements plus récents.
+
+**Paiements :** l'économie est encore une démo locale. N'active pas Stripe en mode réel dans cette version.

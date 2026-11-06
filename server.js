@@ -17,7 +17,7 @@ const peers=new Set(),ships=new Map(),botShips=new Map();let nextId=0,serverTime
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function WSframe(obj){const b=Buffer.from(JSON.stringify(obj));let h;if(b.length<126)h=Buffer.from([129,b.length]);else if(b.length<65536)h=Buffer.from([129,126,b.length>>8,b.length&255]);else{h=Buffer.alloc(10);h[0]=129;h[1]=127;h.writeBigUInt64BE(BigInt(b.length),2)}return Buffer.concat([h,b])}
 function send(c,obj){try{if(!c.socket.destroyed)c.socket.write(WSframe(obj))}catch{}}
-function broadcast(obj){const buf=WSframe(obj);for(const c of peers)try{if(c.joined&&!c.socket.destroyed)c.socket.write(buf)}catch{}}
+function broadcast(obj){const buf=WSframe(obj);for(const c of peers)try{if(c.joined&&!c.socket.destroyed&&c.socket.writableLength<256000)c.socket.write(buf)}catch{}}
 function safeName(s){return String(s||'PILOTE').replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,16)||'PILOTE'}
 const hues=[15,25,48,115,165,195,215,245,275,300,325,350];
 const botNames=['Vortex','Nitro','Pulse','Arc','Glitch','Rift','Nova','Kite','Turbo','Bolt','Zephyr','Flash','Ion','Comet','Flux','Aero','Jinx','Vector','Rush','Ghost','Hyper','Quark','Zoom'];
@@ -33,21 +33,14 @@ for(const [type,count] of [['large',2],['medium',5],['small',9]])for(let k=0;k<c
 function emptyAt(x,y,extra=40){return !planets.some(p=>Math.hypot(p.x-x,p.y-y)<p.r+extra)}
 function spawn(){for(let i=0;i<100;i++){let x=rand(-3500,3500),y=rand(-3500,3500);if(emptyAt(x,y,220)&&[...ships.values(),...botShips.values()].every(s=>Math.hypot(s.x-x,s.y-y)>160))return {x,y}}return {x:0,y:0}}
 function createBot(){
- const p=spawn(),id='bot-'+(++nextId);
- // Des comportements persistants : certains attaquent, d'autres explorent,
- // d'autres saisissent les occasions ou se replient si l'angle est mauvais.
- const role=Math.random();
- const style=role<.30?'hunter':role<.58?'balanced':role<.80?'scavenger':'cautious';
- const aggression={hunter:.88,balanced:.60,scavenger:.43,cautious:.30}[style];
- const skill=rand(.52,1),courage=rand(.33,.95);
- const angle=rand(-Math.PI,Math.PI);
+ const p=spawn(),id='bot-'+(++nextId),angle=rand(-Math.PI,Math.PI);
+ const skill=rand(.60,1),aggression=rand(.66,.94);
  return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,
-  vx:Math.cos(angle)*rand(85,185),vy:Math.sin(angle)*rand(85,185),angle,
+  vx:Math.cos(angle)*rand(140,230),vy:Math.sin(angle)*rand(140,230),angle,
   hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,
   boosting:false,invuln:2,thought:0,target:angle,targetId:null,
-  style,aggression,skill,courage,mode:'cruise',modeUntil:0,aimX:p.x+500*Math.cos(angle),aimY:p.y+500*Math.sin(angle),
-  passes:0,failedApproaches:0,lastDistance:Infinity,stuckFor:0,prevX:p.x,prevY:p.y,
-  engageUntil:0,roamUntil:0,avoidUntil:0,respawn:0,alive:true};
+  aggression,skill,mode:'cruise',modeUntil:0,aimX:p.x+600*Math.cos(angle),aimY:p.y+600*Math.sin(angle),
+  boostUntil:0,boostDecisionAt:0,prevX:p.x,prevY:p.y,respawn:0,alive:true};
 }
 function fillSlots(){const want=Math.max(0,20-ships.size);while(botShips.size>want)botShips.delete(botShips.keys().next().value);while(botShips.size<want){const b=createBot();botShips.set(b.id,b)}}
 function pack(p){return {id:p.id,bot:!!p.bot,name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,hue:p.hue,level:p.level,score:p.score,energy:p.energy,boosting:p.boosting,invuln:p.invuln}}
@@ -66,7 +59,7 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   for(const other of peers)if(other!==c&&other.joined&&other.userId===user.id){depart(other);send(other,{type:'error',message:'Compte connecté sur un autre appareil'});}
   c.userId=user.id;
   const pos=spawn();c.joined=true;c.id=c.id||'p-'+(++nextId);
-  const p={id:c.id,bot:false,name:safeName(m.name),x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true};
+  const p={id:c.id,bot:false,name:safeName(m.name),prevX:pos.x,prevY:pos.y,prevAngle:0,x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true};
   ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'ARÈNE PRINCIPALE',spawn:pos,planets});return;
  }
  if(!c.joined)return;
@@ -81,194 +74,176 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   const age=Math.max(.015,Math.min(.25,(Date.now()-p.last)/1000));
   // Basic plausibility check; not a substitute for true authoritative physics.
   if(Math.hypot(x-p.x,y-p.y)>Math.max(140,top*age*3.3)&&Date.now()-p.last<1200)return;
-  p.prevX=p.x;p.prevY=p.y;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();
+  p.prevX=p.x;p.prevY=p.y;p.prevAngle=p.angle;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();
  }
 }
-// Géométrie du vaisseau identique au tracé canvas du client (pointe à +22).
-const HULL_LOCAL=[[22,0],[-12,-13],[-6,0],[-12,13]];
-function hullAt(e,x,y){const c=Math.cos(e.angle),s=Math.sin(e.angle);return HULL_LOCAL.map(([hx,hy])=>({x:x+hx*c-hy*s,y:y+hx*s+hy*c}))}
-function pointSegDist2(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,d=dx*dx+dy*dy;const t=d?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/d,0,1):0;return (p.x-a.x-t*dx)**2+(p.y-a.y-t*dy)**2}
-// Le polygone est concave (entailles latérales), donc utiliser un rayon au lieu
-// du test de demi-plans convexes.
-function insideShip(p,h){let inside=false;for(let i=0,j=h.length-1;i<h.length;j=i++){
- const a=h[i],b=h[j];if(pointSegDist2(p,a,b)<1e-6)return true;
- if((a.y>p.y)!=(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
- }return inside}
-function segmentsIntersect(a,b,c,d){
- const abx=b.x-a.x,aby=b.y-a.y,cdx=d.x-c.x,cdy=d.y-c.y,den=abx*cdy-aby*cdx;
- if(Math.abs(den)<1e-8)return pointSegDist2(a,c,d)<1e-6||pointSegDist2(b,c,d)<1e-6||pointSegDist2(c,a,b)<1e-6||pointSegDist2(d,a,b)<1e-6;
- const rx=c.x-a.x,ry=c.y-a.y,t=(rx*cdy-ry*cdx)/den,u=(rx*aby-ry*abx)/den;
- return t>=0&&t<=1&&u>=0&&u<=1;
+function hullAt(s,f){
+ const x=(Number.isFinite(s.prevX)?s.prevX:s.x)*(1-f)+s.x*f;
+ const y=(Number.isFinite(s.prevY)?s.prevY:s.y)*(1-f)+s.y*f;
+ const da=Math.atan2(Math.sin(s.angle-(s.prevAngle??s.angle)),Math.cos(s.angle-(s.prevAngle??s.angle)));
+ const angle=(s.prevAngle??s.angle)+da*f,c=Math.cos(angle),z=Math.sin(angle);
+ return [[22,0],[-12,-13],[-6,0],[-12,13]].map(([u,v])=>({x:x+u*c-v*z,y:y+u*z+v*c}));
 }
-function hullTouch(a,b){if(a.some(p=>insideShip(p,b))||b.some(p=>insideShip(p,a)))return true;
- for(let i=0;i<4;i++)for(let j=0;j<4;j++)if(segmentsIntersect(a[i],a[(i+1)%4],b[j],b[(j+1)%4]))return true;return false}
-function tipTouches(tip,other){if(insideShip(tip,other))return true;for(let i=0;i<4;i++)if(pointSegDist2(tip,other[i],other[(i+1)%4])<=9*9)return true;return false}
+function hullSegmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;
+ const t=den?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/den,0,1):0;
+ return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
+}
+function hullContains(p,h){
+ let inside=false;
+ for(let i=0,j=h.length-1;i<h.length;j=i++){
+  const a=h[j],b=h[i];
+  if(hullSegmentDistance(p,a,b)<=1.5)return true;
+  if(((a.y>p.y)!==(b.y>p.y))&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+ }
+ return inside;
+}
+function hullCross(a,b,c,d){
+ const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+ const ab1=cross(a,b,c),ab2=cross(a,b,d),cd1=cross(c,d,a),cd2=cross(c,d,b);
+ return (ab1*ab2<0&&cd1*cd2<0)||
+  (Math.abs(ab1)<1e-8&&hullSegmentDistance(c,a,b)<1e-6)||
+  (Math.abs(ab2)<1e-8&&hullSegmentDistance(d,a,b)<1e-6)||
+  (Math.abs(cd1)<1e-8&&hullSegmentDistance(a,c,d)<1e-6)||
+  (Math.abs(cd2)<1e-8&&hullSegmentDistance(b,c,d)<1e-6);
+}
+function hullsOverlap(a,b){
+ if(a.some(p=>hullContains(p,b))||b.some(p=>hullContains(p,a)))return true;
+ for(let i=0;i<4;i++)for(let j=0;j<4;j++)
+  if(hullCross(a[i],a[(i+1)%4],b[j],b[(j+1)%4]))return true;
+ return false;
+}
+function tipTouchesHull(tip,h){
+ if(hullContains(tip,h))return true;
+ for(let i=0;i<4;i++)if(hullSegmentDistance(tip,h[i],h[(i+1)%4])<7)return true;
+ return false;
+}
 function collide(a,b){
  if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
  const ax0=Number.isFinite(a.prevX)?a.prevX:a.x,ay0=Number.isFinite(a.prevY)?a.prevY:a.y;
  const bx0=Number.isFinite(b.prevX)?b.prevX:b.x,by0=Number.isFinite(b.prevY)?b.prevY:b.y;
- const adx=a.x-ax0,ady=a.y-ay0,bdx=b.x-bx0,bdy=b.y-by0;
- const rx=ax0-bx0,ry=ay0-by0,dx=adx-bdx,dy=ady-bdy;
- const denom=dx*dx+dy*dy,tNear=denom?clamp(-(rx*dx+ry*dy)/denom,0,1):1;
- // Rayon de préfiltrage englobant toutes les pointes, quelle que soit l'orientation.
- if(Math.hypot(rx+dx*tNear,ry+dy*tNear)>64)return;
- // Échantillonnage adaptatif: le déplacement d'une image ne doit pas sauter un vaisseau.
- const travel=Math.hypot(dx,dy),steps=Math.min(64,Math.max(3,Math.ceil(travel/6)));
- let hit=null;
- const candidates=[];for(let i=0;i<=steps;i++)candidates.push(i/steps);
- candidates.push(tNear);candidates.sort((x,y)=>x-y);
- for(const t of candidates){
-  const hxA=hullAt(a,ax0+adx*t,ay0+ady*t),hxB=hullAt(b,bx0+bdx*t,by0+bdy*t);
-  const aTip=tipTouches(hxA[0],hxB),bTip=tipTouches(hxB[0],hxA);
-  if(!aTip&&!bTip&&!hullTouch(hxA,hxB))continue;
-  // Conserver le premier contact, pour ne pas perdre une attaque par derrière
-  // lorsqu'une pénétration plus profonde change la classification de l'impact.
-  hit={aTip,bTip,x:(hxA[0].x+hxB[0].x)/2,y:(hxA[0].y+hxB[0].y)/2};break;
+ const r0x=bx0-ax0,r0y=by0-ay0,drx=(b.x-bx0)-(a.x-ax0),dry=(b.y-by0)-(a.y-ay0);
+ const closest=clamp(-(r0x*drx+r0y*dry)/(drx*drx+dry*dry||1),0,1);
+ if(Math.hypot(r0x+drx*closest,r0y+dry*closest)>44)return;
+ // Check swept shape, not just tip vs center; include the closest approach.
+ const samples=[0,.2,.4,.6,.8,1,closest].sort((x,y)=>x-y);
+ let contact=null;
+ for(const t of samples){
+  const aHull=hullAt(a,t),bHull=hullAt(b,t);
+  if(!hullsOverlap(aHull,bHull))continue;
+  contact={aTip:tipTouchesHull(aHull[0],bHull),bTip:tipTouchesHull(bHull[0],aHull)};
+  break;
  }
- if(!hit)return;
- let winner=null,loser=null;
- if(hit.aTip&&hit.bTip){
-  const va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);
-  if(Math.abs(va-vb)>Math.max(18,Math.min(va,vb)*.045)){winner=va>vb?a:b;loser=winner===a?b:a}
- }else if(hit.aTip){winner=a;loser=b}
- else if(hit.bTip){winner=b;loser=a}
- if(!loser){
-  // Flanc/flanc ou pointes de vitesse presque égale : vrai contact = rebond.
-  const nx=(b.x-a.x)/(Math.hypot(b.x-a.x,b.y-a.y)||1),ny=(b.y-a.y)/(Math.hypot(b.x-a.x,b.y-a.y)||1);
-  const rvx=b.vx-a.vx,rvy=b.vy-a.vy,closing=rvx*nx+rvy*ny;
-  if(closing<0){a.vx+=nx*closing*.3;a.vy+=ny*closing*.3;b.vx-=nx*closing*.3;b.vy-=ny*closing*.3}
-  a.x-=nx*5;a.y-=ny*5;b.x+=nx*5;b.y+=ny*5;
+ if(!contact)return;
+ if(!contact.aTip&&!contact.bTip){ // Broadside: deflect both instead of ghosting.
+  const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,nx=dx/d,ny=dy/d;
+  const aOut=a.vx*nx+a.vy*ny,bOut=b.vx*nx+b.vy*ny;
+  if(aOut>bOut){const impulse=(aOut-bOut)*.60;a.vx-=impulse*nx;a.vy-=impulse*ny;b.vx+=impulse*nx;b.vy+=impulse*ny;}
   return;
  }
+ let winner,loser;
+ if(contact.aTip&&contact.bTip){
+  const va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);
+  if(Math.abs(va-vb)<18)return;
+  winner=va>vb?a:b;loser=winner===a?b:a;
+ }else{winner=contact.aTip?a:b;loser=winner===a?b:a}
  loser.invuln=5;loser.alive=false;
  if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id,x:loser.x,y:loser.y,level:loser.level,hue:loser.hue,killer:winner.id});}
  else{const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
  if(winner.bot){winner.score+=140+22*loser.level;winner.level=Math.min(100,1+Math.floor(winner.score/950));}
- else {const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
+ else{const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
 }
 // Les bots anticipent les murs suivant leur vitesse (pas de modification des joueurs).
 function avoidWall(b){
- const speed=Math.hypot(b.vx,b.vy),edge=WORLD-16;
- const ahead=Math.max(1.25,Math.min(2.5,speed/220));
- const margin=Math.max(450,Math.min(1250,speed*2.2+210));
- const px=b.x+b.vx*ahead,py=b.y+b.vy*ahead;
- const dangerX=Math.abs(px)>edge-margin||Math.abs(b.x)>edge-margin;
- const dangerY=Math.abs(py)>edge-margin||Math.abs(b.y)>edge-margin;
+ const edge=WORLD-40,speed=Math.hypot(b.vx,b.vy);
+ const look=clamp(.45+speed/1200,.60,1.12);
+ const px=b.x+b.vx*look,py=b.y+b.vy*look;
+ // Only steer when headed toward a wall. Do not brake across a huge strip of the map.
+ const dangerX=Math.abs(px)>edge-140&&Math.sign(b.vx)===Math.sign(px);
+ const dangerY=Math.abs(py)>edge-140&&Math.sign(b.vy)===Math.sign(py);
  if(!dangerX&&!dangerY)return false;
- // Vise le centre, puis ajuste la trajectoire latéralement pour ne pas vibrer sur le mur.
- const toX=-b.x,toY=-b.y;
- let heading=Math.atan2(toY,toX);
- const futureX=b.x+Math.cos(heading)*300,futureY=b.y+Math.sin(heading)*300;
- for(const p of planets){if(Math.hypot(futureX-p.x,futureY-p.y)<p.r+85){heading+=.55;break}}
- b.target=heading;
+ let tx=b.x+Math.cos(b.target)*650,ty=b.y+Math.sin(b.target)*650;
+ if(dangerX)tx=-Math.sign(px)*Math.max(400,Math.min(1400,Math.abs(px)-(edge-140)+380));
+ if(dangerY)ty=-Math.sign(py)*Math.max(400,Math.min(1400,Math.abs(py)-(edge-140)+380));
+ // Local detour toward open space, away from the wall, keeping speed wherever possible.
+ b.target=Math.atan2((dangerY?ty:b.y+Math.sin(b.target)*650)-b.y,
+                             (dangerX?tx:b.x+Math.cos(b.target)*650)-b.x);
  return true;
 }
 function chooseBotMode(b){
- const speed=Math.hypot(b.vx,b.vy);
- // Détermination d'une intention persistante, plutôt que de changer de cible
- // à chaque image. Les cibles sont choisies selon leur proximité et leur cap.
- const nearby=[...botShips.values(),...ships.values()].filter(q=>q!==b&&q.alive&&q.invuln<=0)
-  .map(q=>({q,dist:Math.hypot(q.x-b.x,q.y-b.y)})).filter(e=>e.dist>95&&e.dist<1500);
- let choice=null,best=-Infinity;
- for(const {q,dist} of nearby){
-  const facing=Math.cos(Math.atan2(q.y-b.y,q.x-b.x)-b.angle);
-  const themFacing=Math.cos(Math.atan2(b.y-q.y,b.x-q.x)-q.angle);
-  const score=2*(1-dist/1500)+facing*.65+Math.random()*.75+(q.bot?.24:-.05)
-   +((b.style==='hunter')?.35:0)-(themFacing>.7&&b.style==='cautious'?.5:0);
-  if(score>best){best=score;choice=q}
+ const nearby=[];
+ for(const q of botShips.values())if(q!==b&&q.alive&&q.invuln<=0)nearby.push(q);
+ for(const q of ships.values())if(q.alive&&q.invuln<=0)nearby.push(q);
+ let target=null,score=-Infinity;
+ for(const q of nearby){
+  const dist=Math.hypot(q.x-b.x,q.y-b.y);
+  if(dist<60||dist>1650)continue;
+  const ahead=Math.cos(Math.atan2(q.y-b.y,q.x-b.x)-b.angle);
+  const rank=(1-dist/1650)*1.6+ahead*.5+(q.bot?.22:0)+Math.random()*.32;
+  if(rank>score){score=rank;target=q;}
  }
- const probability=b.aggression*(b.mode==='hunt'?.93:1);
- if(choice&&Math.random()<probability){
-  b.mode='hunt';b.targetId=choice.id;
-  b.modeUntil=serverTime+rand(3.6,7.2)*(b.style==='hunter'?1.35:1);
-  b.passes=0;b.failedApproaches=0;b.lastDistance=Infinity;
+ if(target&&Math.random()<b.aggression){
+  b.mode='hunt';b.targetId=target.id;b.modeUntil=serverTime+rand(4.0,7.0);
  }else{
-  b.mode=Math.random()<(b.style==='scavenger'?.55:.27)?'forage':'cruise';
-  b.targetId=null;b.modeUntil=serverTime+rand(2.5,5.5);
-  const angle=b.angle+rand(-.75,.75);
-  b.aimX=clamp(b.x+Math.cos(angle)*rand(650,1450),-WORLD+500,WORLD-500);
-  b.aimY=clamp(b.y+Math.sin(angle)*rand(650,1450),-WORLD+500,WORLD-500);
+  b.mode='cruise';b.targetId=null;b.modeUntil=serverTime+rand(1.1,2.7);
+  const angle=b.angle+rand(-.6,.6);
+  b.aimX=clamp(b.x+Math.cos(angle)*rand(900,1800),-WORLD+350,WORLD-350);
+  b.aimY=clamp(b.y+Math.sin(angle)*rand(900,1800),-WORLD+350,WORLD-350);
  }
 }
 function step(dt){serverTime+=dt;
  for(const p of planets){p.x+=p.vx*dt;p.y+=p.vy*dt;for(const axis of ['x','y'])if(Math.abs(p[axis])>WORLD-p.r-150){p[axis]=clamp(p[axis],-WORLD+p.r+150,WORLD-p.r-150);p['v'+axis]*=-1}}
  for(const b of botShips.values()){
   if(!b.alive){if(serverTime>=b.respawn){const pos=spawn();b.x=pos.x;b.y=pos.y;b.prevX=b.x;b.prevY=b.y;
-   b.invuln=2;b.vx=b.vy=0;b.alive=true;b.mode='cruise';b.targetId=null;b.modeUntil=0;b.passes=0;}continue}
-  b.prevX=b.x;b.prevY=b.y;b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
-  let speed=Math.hypot(b.vx,b.vy);
+   b.invuln=2;b.vx=b.vy=0;b.alive=true;b.mode='cruise';b.targetId=null;b.modeUntil=0;b.boostUntil=0;b.boostDecisionAt=0;}continue}
+  b.prevX=b.x;b.prevY=b.y;b.prevAngle=b.angle;b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
+  const speed=Math.hypot(b.vx,b.vy);
   const prey=b.targetId&&(botShips.get(b.targetId)||ships.get(b.targetId));
-  if(b.mode==='hunt'&&(!prey?.alive||serverTime>b.modeUntil)){
-   b.targetId=null;b.mode='cruise';b.modeUntil=serverTime+rand(.8,2.2);
-  }
+  if(b.mode==='hunt'&&(!prey?.alive||serverTime>b.modeUntil))b.modeUntil=0;
   if(serverTime>b.modeUntil)chooseBotMode(b);
   let aim=b.angle;
-  if(b.mode==='hunt'&&prey?.alive){
-   const dx=prey.x-b.x,dy=prey.y-b.y,dist=Math.hypot(dx,dy);
-   // Interception dynamique avec déviation latérale faible et limitée dans le temps.
-   const closing=Math.max(140,speed+Math.hypot(prey.vx,prey.vy)*.35);
-   const lead=clamp(dist/closing,.10,.72)*b.skill;
-   let tx=prey.x+prey.vx*lead,ty=prey.y+prey.vy*lead;
-   aim=Math.atan2(ty-b.y,tx-b.x);
-   // À très courte distance, ne pas effectuer des tours sur place : continuer
-   // la passe d'attaque. Le bot pourra faire UNE nouvelle tentative, puis repartir.
-   if(dist<145){
-    b.passes++;b.mode='pass';b.modeUntil=serverTime+rand(.45,.9);
-    b.targetId=null;b.target=aim;
-   }else if(dist>b.lastDistance+55&&b.lastDistance<230){
-    b.failedApproaches++;
-    if(b.failedApproaches>=2){b.mode='cruise';b.modeUntil=serverTime+rand(1.2,2.7);b.targetId=null;b.target=b.angle+rand(-.4,.4)}
-   }
-   b.lastDistance=dist;
-  }else if(b.mode==='pass'){
-   aim=b.target;
-   if(serverTime>b.modeUntil){b.mode='cruise';b.modeUntil=serverTime+rand(.7,1.6);b.targetId=null;}
+  const currentTarget=b.mode==='hunt'&&b.targetId&&(botShips.get(b.targetId)||ships.get(b.targetId));
+  if(currentTarget?.alive){
+   const dx=currentTarget.x-b.x,dy=currentTarget.y-b.y,dist=Math.hypot(dx,dy);
+   // Direct pursuit with modest interception; no forced "pass" or long escape mode.
+   const lead=clamp(dist/Math.max(300,speed+160),.05,.55)*b.skill;
+   aim=Math.atan2(currentTarget.y+currentTarget.vy*lead-b.y,
+                  currentTarget.x+currentTarget.vx*lead-b.x);
   }else{
    aim=Math.atan2(b.aimY-b.y,b.aimX-b.x);
-   if(Math.hypot(b.aimX-b.x,b.aimY-b.y)<150)b.modeUntil=0;
+   if(Math.hypot(b.aimX-b.x,b.aimY-b.y)<175)b.modeUntil=0;
   }
-  // Un adversaire qui s'approche pointe en avant peut déclencher une brève
-  // esquive, mais ne fait pas fuir tous les bots indéfiniment.
-  if(b.mode!=='pass'&&b.style!=='hunter'&&serverTime>b.avoidUntil){
-   for(const q of [...ships.values(),...botShips.values()]){
-    if(q===b||!q.alive)continue;
-    const d=Math.hypot(q.x-b.x,q.y-b.y);
-    if(d>215||d<20)continue;
-    const towards=Math.cos(q.angle-Math.atan2(b.y-q.y,b.x-q.x));
-    if(towards>.83&&Math.hypot(q.vx,q.vy)>speed*.90&&Math.random()<(.014*(1-b.courage))){
-     b.mode='evade';b.modeUntil=serverTime+rand(.65,1.25);b.targetId=null;
-     b.target=Math.atan2(b.y-q.y,b.x-q.x)+(Math.random()<.5?.6:-.6);b.avoidUntil=serverTime+4;break;
-    }
-   }
-  }
-  if(b.mode==='evade')aim=b.target;
-  // Les planètes sont évitées sans annuler continuellement l'objectif.
-  for(const p of planets){let dx=b.x+b.vx*.65-p.x,dy=b.y+b.vy*.65-p.y,d=Math.hypot(dx,dy);
-   if(d<p.r+125){aim=Math.atan2(dy,dx)+.32;break}}
+  // Avoid planets, but keep the pursuit goal intact.
+  for(const p of planets){const dx=b.x+b.vx*.83-p.x,dy=b.y+b.vy*.83-p.y,d=Math.hypot(dx,dy);
+   if(d<p.r+150){aim=Math.atan2(dy,dx)+Math.sign(Math.sin(aim-Math.atan2(dy,dx))||1)*.36;break}}
   b.target=aim;
   const wallDanger=avoidWall(b);
   const diff=Math.atan2(Math.sin(b.target-b.angle),Math.cos(b.target-b.angle));
-  const turnSpeed=(wallDanger?4.2:(1.9+b.skill*.95));
+  const turnSpeed=wallDanger?4.9:(2.85+b.skill*.90);
+  b.prevAngle=b.angle;
   b.angle+=clamp(diff,-turnSpeed*dt,turnSpeed*dt);
-  // Rythme de boost différent selon le pilote : franches accélérations pour
-  // intercepter, respiration en exploration, freinage aux murs.
-  const boostIntent=b.mode==='hunt'?(.72+b.aggression*.22):b.mode==='pass'?.70:b.mode==='evade'?.81:b.mode==='forage'?.33:.45;
-  b.boosting=!wallDanger&&b.energy>15&&Math.sin(serverTime*(.6+b.skill*.3)+b.hue) > (1-2*boostIntent);
-  b.energy=clamp(b.energy+(b.boosting?-24:14)*dt,0,100);
-  const acc=b.boosting&&b.energy>0?520:270;
+  // Short boosts, not one continuous boost or long periods of flight.
+  if(serverTime>=b.boostDecisionAt){
+   const chance=b.mode==='hunt'?.80:.48;
+   const desire=b.energy>27&&Math.random()<chance;
+   b.boostUntil=desire?serverTime+rand(.40,.98):serverTime;
+   b.boostDecisionAt=serverTime+rand(.48,1.20);
+  }
+  b.boosting=b.energy>4&&serverTime<b.boostUntil;
+  b.energy=clamp(b.energy+(b.boosting?-34:23)*dt,0,100);
+  const acc=b.boosting&&b.energy>0?640:300;
   b.vx=b.vx*Math.pow(.991,dt*60)+Math.cos(b.angle)*acc*dt;
   b.vy=b.vy*Math.pow(.991,dt*60)+Math.sin(b.angle)*acc*dt;
-  let cap=b.boosting?440:326;
-  if(wallDanger){
-   cap=Math.min(cap,185);const safe=WORLD-16-290;
-   if(Math.abs(b.x)>safe&&b.vx*Math.sign(b.x)>0)b.vx*=Math.pow(.92,dt*60);
-   if(Math.abs(b.y)>safe&&b.vy*Math.sign(b.y)>0)b.vy*=Math.pow(.92,dt*60);
-  }
+  const cap=b.boosting?(560+Math.min(b.level,14)*7+75*(b.skill-.60)):(365+Math.min(b.level,10)*7);
+  // Emergency dampening only at the very edge when still moving outward.
+  const edge=WORLD-16;
+  if(Math.abs(b.x)>edge-85&&b.vx*Math.sign(b.x)>0)b.vx*=Math.pow(.92,dt*60);
+  if(Math.abs(b.y)>edge-85&&b.vy*Math.sign(b.y)>0)b.vy*=Math.pow(.92,dt*60);
   let v=Math.hypot(b.vx,b.vy);if(v>cap){b.vx*=cap/v;b.vy*=cap/v}
   for(const p of planets){let dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy);
    if(d>p.r&&d<p.r*3.25){let inf=Math.pow(1-(d-p.r)/(p.r*2.25),1.7),s=Math.hypot(b.vx,b.vy);
     b.vx+=dx/d*335*inf*dt;b.vy+=dy/d*335*inf*dt;let ns=Math.hypot(b.vx,b.vy);if(ns){b.vx*=s/ns;b.vy*=s/ns}}}
   b.x+=b.vx*dt;b.y+=b.vy*dt;
+
   for(const p of planets){let dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),lim=p.r+13;if(d<lim){let nx=dx/(d||1),ny=dy/(d||1);b.x=p.x+nx*lim;b.y=p.y+ny*lim;
    let dot=b.vx*nx+b.vy*ny;if(dot<0){b.vx-=1.7*dot*nx;b.vy-=1.7*dot*ny}b.vx*=.65;b.vy*=.65;}}
   if(Math.abs(b.x)>WORLD-16){b.x=clamp(b.x,-WORLD+16,WORLD-16);b.vx*=-.55}
@@ -278,7 +253,7 @@ function step(dt){serverTime+=dt;
  const all=[...ships.values(),...botShips.values()].filter(x=>x.alive);
  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++)collide(all[i],all[j]);
  // Une trajectoire reçue du client ne doit pas être retestée aux ticks suivants.
- for(const p of ships.values()){p.prevX=p.x;p.prevY=p.y}
+ for(const p of ships.values()){p.prevX=p.x;p.prevY=p.y;p.prevAngle=p.angle}
 }
 const app=http.createServer((req,res)=>{
  let url;try{url=new URL(req.url,'http://localhost')}catch{res.writeHead(400).end();return}
@@ -298,5 +273,5 @@ app.on('upgrade',(req,socket)=>{if(req.url!=='/live'||req.headers.upgrade?.toLow
  const accept=crypto.createHash('sha1').update(req.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
  const c={socket,buffer:Buffer.alloc(0),joined:false,id:null,userId:null,authPending:false};peers.add(c);socket.on('data',b=>consume(c,b));socket.on('error',()=>{});socket.on('close',()=>{depart(c);peers.delete(c)});
 });
-fillSlots();let prev=Date.now(),broadcastElapsed=0;setInterval(()=>{let now=Date.now(),dt=clamp((now-prev)/1000,0,.07);prev=now;step(dt);broadcastElapsed+=dt;if(broadcastElapsed>.08){broadcastElapsed=0;broadcast({type:'state',humans:ships.size,bots:botShips.size,ships:[...ships.values(),...botShips.values()].filter(x=>x.alive).map(pack),planets})}},1000/30);
+fillSlots();let prev=Date.now(),broadcastElapsed=0,planetSyncElapsed=0;setInterval(()=>{let now=Date.now(),dt=clamp((now-prev)/1000,0,.07);prev=now;step(dt);broadcastElapsed+=dt;planetSyncElapsed+=dt;if(broadcastElapsed>=.05){broadcastElapsed=0;const state={type:'state',humans:ships.size,bots:botShips.size,ships:[...ships.values(),...botShips.values()].filter(x=>x.alive).map(pack)};if(planetSyncElapsed>=.5){state.planets=planets;planetSyncElapsed=0;}broadcast(state)}},1000/30);
 app.listen(PORT,'0.0.0.0',()=>console.log('MOMENTUM.IO beta shared arena listening on '+PORT));
