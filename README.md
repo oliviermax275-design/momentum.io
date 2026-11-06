@@ -1,39 +1,43 @@
-# MOMENTUM.IO — Version complète, correction des orbes
+# MOMENTUM.IO — correctif complet : synchronisation, bots, orbes, boost
 
-Projet complet pour le dépôt GitHub `momentum.io` et le service Render existant.
+Version complète à téléverser sur le dépôt GitHub `oliviermax275-design/momentum.io`.
 
-## Contenu
+## Fichiers
 
-- `public/index.html` : jeu multijoueur avec connexion Supabase/Google, boutique et correction de la génération des orbes.
-- `server.js` : serveur Node.js et arène multijoueur (repris de la version Bots + Fluidité V2, inchangé).
-- `package.json` : commande de lancement Node.js.
-- `render.yaml` : paramètres Render.
+- `server.js` : serveur multijoueur, bots, collisions, compensation du délai réseau.
+- `public/index.html` : jeu complet, interface, connexion Google/Supabase, physique du joueur, orbes, rendu des collisions.
+- `package.json` : lancement du serveur Node.js sur Render.
+- `render.yaml` : configuration du service Render.
+- `README.md` : ce document.
 
-## Correction des orbes
+## Correctifs
 
-- Aucun orbe généré dans la surface d'une planète, y compris en cas de dernier tirage ou au lancement avant réception des positions réseau.
-- Les orbes obtenus après une élimination (locale ou réseau) sont placés dans une zone libre de planètes.
-- Les orbes déjà présents sont déplacés si une planète dérivante les recouvre ou si les positions officielles arrivent du serveur.
-- Les orbes du décor du lobby obéissent également à cette règle.
-- Marge de sécurité de 24 unités, en plus du rayon visible de l'orbe.
+1. **Synchronisation des collisions** : le navigateur teste les contours réellement visibles des vaisseaux dès le contact et signale l'impact au serveur, qui le vérifie en consultant les positions récentes de l'adversaire et la position affichée, avec bornes anti-faux contacts. Un éclair d'impact local peut précéder l'élimination confirmée par le serveur. Les vaisseaux en période de protection ne sont plus simplement traversés : le contact provoque un rebond.
+2. **Bots moins regroupés** : chacun choisit ses cibles en pénalisant celles déjà poursuivies, évite les foules proches, peut explorer la carte et anticipe les planètes et les murs. Leur poursuite reste active, avec des niveaux d'agressivité variés.
+3. **Orbes mieux répartis** : **2 500 orbes** sur la grande carte (au lieu de 1 500), apparition équilibrée dans des secteurs de toute l'arène, sans anneau artificiel centré sur le joueur. Les positions évitent toujours les planètes.
+4. **Loot après élimination** : les 12 orbes se répartissent à des positions distinctes autour du point de destruction, avec une courte animation de dispersion, au lieu de former un seul point superposé.
+5. **Inertie du boost** : relâcher Espace ne rabat plus immédiatement la vitesse à la limite sans boost. La vitesse excédentaire diminue progressivement sous l'effet du frottement et des virages.
 
-## Déploiement
+## Installation
 
-1. Décompresse ce ZIP.
-2. Sur GitHub, dépôt `momentum.io`, téléverse **les fichiers décompressés** dans les mêmes chemins. Le dossier `public` doit contenir `index.html`.
-3. Valide le commit sur `main`. Render redéploiera automatiquement.
-4. Vérifie le statut **Live**, puis recharge le jeu avec **Ctrl + Maj + R** pour éviter le cache.
+1. Décompresse le ZIP.
+2. Dans ton dépôt GitHub, remplace les fichiers existants avec les mêmes chemins. `index.html` reste à l'intérieur du dossier `public`.
+3. Clique sur **Commit changes** et attends le statut **Live** dans Render.
+4. Actualise le site avec **Ctrl + Maj + R**.
 
-Les variables Render `SUPABASE_URL` et `SUPABASE_ANON_KEY` restent nécessaires; **ne copie jamais de clé privée dans GitHub**. La connexion Google/Supabase reste configurée comme auparavant.
+Les variables `SUPABASE_URL` et `SUPABASE_ANON_KEY` sur Render ne changent pas ; **ne publie pas de clé privée** dans GitHub.
 
-**Source de ce paquet** : MOMENTUM_IO_BOTS_FLUIDITE_V2.zip (la dernière version fournie dans la conversation). Il ne récupère pas automatiquement d'éventuels fichiers modifiés ensuite dans ton dépôt GitHub. Comparer si tu y as poussé d'autres changements depuis.
+## Tests locaux (pas de garantie de latence réelle sur Render)
 
-**Paiements** : n'active pas les paiements réels sans valider l'économie et le stockage serveur.
+- Syntaxe de `server.js` et des scripts HTML vérifiée.
+- Simulation de **180 secondes / 20 bots** : bots qui combattent, pas de sortie des murs, contrôle du regroupement.
+- Collisions vérifiées en test unitaire : pointe-arrière, pointe-côté, pointe-pointe, validation d'un contact réseau ancien et rejet d'un contact éloigné.
+- **Cinq essais WebSocket** en conditions de test avec authentification simulée : attaques arrière confirmées par le serveur et diffusion de l'événement d'élimination.
+- Navigateur Chromium en mode test local : environ **60 FPS** au bout de 3 secondes, **2 500 orbes**, aucun orbe dans une planète, aucun problème JavaScript signalé.
+- Loot testé : 12 positions distinctes, aucune au contact d'une planète. Inertie testée sur un vaisseau à 530 unités de vitesse.
 
-## Tests locaux réalisés
+### Limites importantes
 
-- Vérification syntaxique Node.js (`server.js` et deux scripts intégrés à `index.html`).
-- 6 000 orbes normaux, 4 000 orbes de récompense, puis 25 déplacements de planètes : aucun orbe superposé à une planète, avec une marge d'au moins 24 unités.
-- Test de démarrage HTTP `GET /healthz` sur le serveur local.
+Cette version est toujours une **bêta multijoueur** et peut comporter des anomalies sous fortes latences, après une reconnexion ou avec des personnes réelles. Les impacts sont validés côté serveur, mais les mouvements des joueurs humains restent partiellement déclarés par leur navigateur (physique non totalement autoritaire). Ne pas activer des paiements réels ni des compétitions avec récompenses payantes avant une validation de sécurité, une base de données serveur et un stress-test multi-appareils.
 
-Ces tests ne garantissent pas la fluidité ni l'absence de bugs après déploiement sur Render.
+Base du travail : `MOMENTUM_IO_ORBES_CORRIGES_COMPLET.zip`, elle-même issue de `MOMENTUM_IO_BOTS_FLUIDITE_V2.zip`. Si d'autres fichiers ont été modifiés directement sur GitHub depuis, les changements n'y sont pas automatiquement inclus.

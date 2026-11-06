@@ -34,13 +34,13 @@ function emptyAt(x,y,extra=40){return !planets.some(p=>Math.hypot(p.x-x,p.y-y)<p
 function spawn(){for(let i=0;i<100;i++){let x=rand(-3500,3500),y=rand(-3500,3500);if(emptyAt(x,y,220)&&[...ships.values(),...botShips.values()].every(s=>Math.hypot(s.x-x,s.y-y)>160))return {x,y}}return {x:0,y:0}}
 function createBot(){
  const p=spawn(),id='bot-'+(++nextId),angle=rand(-Math.PI,Math.PI);
- const skill=rand(.60,1),aggression=rand(.66,.94);
+ const skill=rand(.66,1),aggression=rand(.44,.92);
  return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,
   vx:Math.cos(angle)*rand(140,230),vy:Math.sin(angle)*rand(140,230),angle,
   hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,
   boosting:false,invuln:2,thought:0,target:angle,targetId:null,
-  aggression,skill,mode:'cruise',modeUntil:0,aimX:p.x+600*Math.cos(angle),aimY:p.y+600*Math.sin(angle),
-  boostUntil:0,boostDecisionAt:0,prevX:p.x,prevY:p.y,respawn:0,alive:true};
+  aggression,skill,personality:rand(0,1),sway:rand(-.5,.5),space:rand(80,190),mode:'cruise',modeUntil:0,aimX:p.x+600*Math.cos(angle),aimY:p.y+600*Math.sin(angle),
+  boostUntil:0,boostDecisionAt:0,prevX:p.x,prevY:p.y,prevAngle:angle,respawn:0,alive:true,history:[]};
 }
 function fillSlots(){const want=Math.max(0,20-ships.size);while(botShips.size>want)botShips.delete(botShips.keys().next().value);while(botShips.size<want){const b=createBot();botShips.set(b.id,b)}}
 function pack(p){return {id:p.id,bot:!!p.bot,name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,hue:p.hue,level:p.level,score:p.score,energy:p.energy,boosting:p.boosting,invuln:p.invuln}}
@@ -59,10 +59,34 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   for(const other of peers)if(other!==c&&other.joined&&other.userId===user.id){depart(other);send(other,{type:'error',message:'Compte connecté sur un autre appareil'});}
   c.userId=user.id;
   const pos=spawn();c.joined=true;c.id=c.id||'p-'+(++nextId);
-  const p={id:c.id,bot:false,name:safeName(m.name),prevX:pos.x,prevY:pos.y,prevAngle:0,x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true};
+  const p={id:c.id,bot:false,name:safeName(m.name),prevX:pos.x,prevY:pos.y,prevAngle:0,x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true,history:[]};
   ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'ARÈNE PRINCIPALE',spawn:pos,planets});return;
  }
  if(!c.joined)return;
+
+ if(m.type==='ping'){
+  if(Number.isFinite(Number(m.t)))send(c,{type:'pong',t:Number(m.t)});
+  return;
+ }
+ if(m.type==='contact'){
+  const me=ships.get(c.id),other=botShips.get(String(m.victim||''))||ships.get(String(m.victim||''));
+  if(!me||!other||!me.alive||!other.alive||other===me)return;
+  const now=Date.now();c.contactCooldown??=new Map();
+  if(now-(c.contactCooldown.get(other.id)||0)<100)return;
+  c.contactCooldown.set(other.id,now);
+  const claimedX=Number(m.x),claimedY=Number(m.y),claimedAngle=Number(m.angle);
+  if(![claimedX,claimedY,claimedAngle].every(Number.isFinite))return;
+  const age=clamp((now-me.last)/1000,.01,.20);
+  const maxDeviation=Math.min(95,34+Math.hypot(me.vx,me.vy)*age*.95);
+  if(Math.hypot(claimedX-me.x,claimedY-me.y)>maxDeviation){send(c,{type:'contact-result',victim:other.id,valid:false});return}
+  const signedDiff=Math.atan2(Math.sin(claimedAngle-me.angle),Math.cos(claimedAngle-me.angle));
+  if(Math.abs(signedDiff)>1.1){send(c,{type:'contact-result',victim:other.id,valid:false});return}
+  const proxy={...me,x:claimedX,y:claimedY,angle:claimedAngle,prevX:claimedX,prevY:claimedY,prevAngle:claimedAngle};
+  const result=validatedClientContact(proxy,other,now,m);
+  send(c,{type:'contact-result',victim:other.id,valid:!!result,aTip:!!result?.aTip,bTip:!!result?.bTip});
+  if(result)resolveImpact(me,other,result);
+  return;
+ }
  if(m.type==='local-death'){depart(c);return}
  if(m.type==='pilot'){
   const p=ships.get(c.id);if(!p)return;
@@ -74,7 +98,7 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   const age=Math.max(.015,Math.min(.25,(Date.now()-p.last)/1000));
   // Basic plausibility check; not a substitute for true authoritative physics.
   if(Math.hypot(x-p.x,y-p.y)>Math.max(140,top*age*3.3)&&Date.now()-p.last<1200)return;
-  p.prevX=p.x;p.prevY=p.y;p.prevAngle=p.angle;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();
+  p.prevX=p.x;p.prevY=p.y;p.prevAngle=p.angle;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();recordHistory(p);
  }
 }
 function hullAt(s,f){
@@ -117,8 +141,80 @@ function tipTouchesHull(tip,h){
  for(let i=0;i<4;i++)if(hullSegmentDistance(tip,h[i],h[(i+1)%4])<7)return true;
  return false;
 }
+// Keep the last 300 ms of actual server positions. Browser state is displayed
+// between snapshots, so contact must be validated against the visible time window.
+function recordHistory(s){
+ const t=Date.now();s.history??=[];
+ s.history.push({t,x:s.x,y:s.y,angle:s.angle,vx:s.vx,vy:s.vy});
+ while(s.history.length>2&&s.history[0].t<t-350)s.history.shift();
+}
+function validatedClientContact(me,other,now,reported){
+ if(me.invuln>0||other.invuln>0)return null;
+ const shapeA=hullAt(me,1);
+ // Validate the actually displayed opponent, not an arbitrary historic hitbox.
+ const latest=(other.history||[]).filter(h=>h.t>=now-330);
+ const vx=Number(reported?.viewX),vy=Number(reported?.viewY),va=Number(reported?.viewAngle);
+ const visibleAt=Number(reported?.seenAt);
+ if(reported && [vx,vy,va,visibleAt].every(Number.isFinite) && visibleAt>=now-330 && visibleAt<=now+90){
+  const plausible=latest.concat([{t:now,x:other.x,y:other.y,angle:other.angle,vx:other.vx,vy:other.vy}]).some(h=>{
+   const dT=clamp((visibleAt-h.t)/1000,-.15,.13);
+   if(Math.abs((visibleAt-h.t)/1000)>.22)return false;
+   const predictedX=h.x+(h.vx||0)*dT,predictedY=h.y+(h.vy||0)*dT;
+   const d=Math.hypot(vx-predictedX,vy-predictedY);
+   const ang=Math.abs(Math.atan2(Math.sin(va-h.angle),Math.cos(va-h.angle)));
+   return d<34+Math.hypot(h.vx||0,h.vy||0)*Math.min(.05,Math.abs(dT)) && ang<.53;
+  });
+  if(plausible){
+   const visual=hullAt({...other,x:vx,y:vy,angle:va,prevX:vx,prevY:vy,prevAngle:va},1);
+   if(Math.hypot(me.x-vx,me.y-vy)<50&&hullsOverlap(shapeA,visual)){
+    return {aTip:tipTouchesHull(shapeA[0],visual),bTip:tipTouchesHull(visual[0],shapeA)};
+   }
+  }
+ }
+ // Fallback for older clients: recent history, prioritising the attacking tip.
+ const times=latest.slice();
+ times.push({x:other.x,y:other.y,angle:other.angle});
+ for(const time of [0.025,0.05,0.075,0.1])times.push({x:other.x+other.vx*time,y:other.y+other.vy*time,angle:other.angle});
+ let best=null,tipFromOpponent=null;
+ for(const q of times){
+  if(Math.hypot(me.x-q.x,me.y-q.y)>46)continue;
+  const h=hullAt({...other,...q,prevX:q.x,prevY:q.y,prevAngle:q.angle},1);
+  if(!hullsOverlap(shapeA,h))continue;
+  const aTip=tipTouchesHull(shapeA[0],h),bTip=tipTouchesHull(h[0],shapeA);
+  if(aTip)return {aTip,bTip};
+  if(bTip)tipFromOpponent={aTip,bTip};
+  best={aTip,bTip};
+ }
+ return tipFromOpponent||best;
+}
+function resolveImpact(a,b,contact){
+ if(!a.alive||!b.alive)return;
+ if(a.invuln>0||b.invuln>0){contact={aTip:false,bTip:false};}
+ if(!contact.aTip&&!contact.bTip){
+  if(serverTime<(a.nextBump||0)&&serverTime<(b.nextBump||0))return;
+  a.nextBump=b.nextBump=serverTime+.14;
+  const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,nx=dx/d,ny=dy/d;
+  if(a.bot){a.x-=nx*5;a.y-=ny*5}
+  if(b.bot){b.x+=nx*5;b.y+=ny*5}
+  const aOut=a.vx*nx+a.vy*ny,bOut=b.vx*nx+b.vy*ny;
+  if(aOut>bOut){const imp=Math.min(160,(aOut-bOut)*.65);a.vx-=imp*nx;a.vy-=imp*ny;b.vx+=imp*nx;b.vy+=imp*ny;}
+  for(const v of [a,b])if(!v.bot){const c=[...peers].find(c=>c.id===v.id);if(c)send(c,{type:'bump',nx:v===a?-nx:nx,ny:v===a?-ny:ny});}
+  return;
+ }
+ let winner,loser;
+ if(contact.aTip&&contact.bTip){
+  const va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);
+  if(Math.abs(va-vb)<18)return;
+  winner=va>vb?a:b;loser=winner===a?b:a;
+ }else{winner=contact.aTip?a:b;loser=winner===a?b:a}
+ loser.invuln=5;loser.alive=false;
+ if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id,x:loser.x,y:loser.y,level:loser.level,hue:loser.hue,killer:winner.id});}
+ else{const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
+ if(winner.bot){winner.score+=140+22*loser.level;winner.level=Math.min(100,1+Math.floor(winner.score/950));}
+ else{const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
+}
 function collide(a,b){
- if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
+ if(!a.alive||!b.alive)return;
  const ax0=Number.isFinite(a.prevX)?a.prevX:a.x,ay0=Number.isFinite(a.prevY)?a.prevY:a.y;
  const bx0=Number.isFinite(b.prevX)?b.prevX:b.x,by0=Number.isFinite(b.prevY)?b.prevY:b.y;
  const r0x=bx0-ax0,r0y=by0-ay0,drx=(b.x-bx0)-(a.x-ax0),dry=(b.y-by0)-(a.y-ay0);
@@ -134,23 +230,7 @@ function collide(a,b){
   break;
  }
  if(!contact)return;
- if(!contact.aTip&&!contact.bTip){ // Broadside: deflect both instead of ghosting.
-  const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,nx=dx/d,ny=dy/d;
-  const aOut=a.vx*nx+a.vy*ny,bOut=b.vx*nx+b.vy*ny;
-  if(aOut>bOut){const impulse=(aOut-bOut)*.60;a.vx-=impulse*nx;a.vy-=impulse*ny;b.vx+=impulse*nx;b.vy+=impulse*ny;}
-  return;
- }
- let winner,loser;
- if(contact.aTip&&contact.bTip){
-  const va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);
-  if(Math.abs(va-vb)<18)return;
-  winner=va>vb?a:b;loser=winner===a?b:a;
- }else{winner=contact.aTip?a:b;loser=winner===a?b:a}
- loser.invuln=5;loser.alive=false;
- if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id,x:loser.x,y:loser.y,level:loser.level,hue:loser.hue,killer:winner.id});}
- else{const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
- if(winner.bot){winner.score+=140+22*loser.level;winner.level=Math.min(100,1+Math.floor(winner.score/950));}
- else{const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
+ resolveImpact(a,b,contact);
 }
 // Les bots anticipent les murs suivant leur vitesse (pas de modification des joueurs).
 function avoidWall(b){
@@ -170,31 +250,41 @@ function avoidWall(b){
  return true;
 }
 function chooseBotMode(b){
- const nearby=[];
- for(const q of botShips.values())if(q!==b&&q.alive&&q.invuln<=0)nearby.push(q);
- for(const q of ships.values())if(q.alive&&q.invuln<=0)nearby.push(q);
- let target=null,score=-Infinity;
+ const nearby=[...botShips.values(),...ships.values()].filter(q=>q!==b&&q.alive&&q.invuln<=0);
+ let best=null,bestScore=-Infinity;
+ const isBusy=b.mode==='hunt';
  for(const q of nearby){
-  const dist=Math.hypot(q.x-b.x,q.y-b.y);
-  if(dist<60||dist>1650)continue;
-  const ahead=Math.cos(Math.atan2(q.y-b.y,q.x-b.x)-b.angle);
-  const rank=(1-dist/1650)*1.6+ahead*.5+(q.bot?.22:0)+Math.random()*.32;
-  if(rank>score){score=rank;target=q;}
+  const d=Math.hypot(q.x-b.x,q.y-b.y);
+  if(d<85||d>1450)continue;
+  const angle=Math.atan2(q.y-b.y,q.x-b.x);
+  const ahead=Math.cos(angle-b.angle);
+  // Do not put all bots on the same target or in the same little chase circle.
+  let pursuers=0,crowd=0;
+  for(const other of botShips.values())if(other!==b&&other.alive){
+   if(other.mode==='hunt'&&other.targetId===q.id)pursuers++;
+   if(Math.hypot(other.x-q.x,other.y-q.y)<175)crowd++;
+  }
+  const score=(1-d/1450)*1.1+ahead*.5+Math.random()*.7-pursuers*.95-crowd*.22+(b.targetId===q.id?.2:0);
+  if(score>bestScore){bestScore=score;best=q;}
  }
- if(target&&Math.random()<b.aggression){
-  b.mode='hunt';b.targetId=target.id;b.modeUntil=serverTime+rand(4.0,7.0);
+ const nearBots=nearby.filter(q=>Math.hypot(q.x-b.x,q.y-b.y)<320).length;
+ const wantsHunt=best&&Math.random()<(b.aggression*(nearBots>4?.50:1));
+ if(wantsHunt){
+  b.mode='hunt';b.targetId=best.id;b.modeUntil=serverTime+rand(2.3,4.6);
  }else{
-  b.mode='cruise';b.targetId=null;b.modeUntil=serverTime+rand(1.1,2.7);
-  const angle=b.angle+rand(-.6,.6);
-  b.aimX=clamp(b.x+Math.cos(angle)*rand(900,1800),-WORLD+350,WORLD-350);
-  b.aimY=clamp(b.y+Math.sin(angle)*rand(900,1800),-WORLD+350,WORLD-350);
+  b.mode='cruise';b.targetId=null;b.modeUntil=serverTime+rand(1.3,3.0);
+  // Independent long waypoints create exploration across the entire map.
+  const a=b.angle+rand(-1.3,1.3)+b.sway;
+  const distance=rand(1100,2500);
+  b.aimX=clamp(b.x+Math.cos(a)*distance,-WORLD+400,WORLD-400);
+  b.aimY=clamp(b.y+Math.sin(a)*distance,-WORLD+400,WORLD-400);
  }
 }
 function step(dt){serverTime+=dt;
  for(const p of planets){p.x+=p.vx*dt;p.y+=p.vy*dt;for(const axis of ['x','y'])if(Math.abs(p[axis])>WORLD-p.r-150){p[axis]=clamp(p[axis],-WORLD+p.r+150,WORLD-p.r-150);p['v'+axis]*=-1}}
  for(const b of botShips.values()){
   if(!b.alive){if(serverTime>=b.respawn){const pos=spawn();b.x=pos.x;b.y=pos.y;b.prevX=b.x;b.prevY=b.y;
-   b.invuln=2;b.vx=b.vy=0;b.alive=true;b.mode='cruise';b.targetId=null;b.modeUntil=0;b.boostUntil=0;b.boostDecisionAt=0;}continue}
+   b.invuln=2;b.vx=b.vy=0;b.alive=true;b.mode='cruise';b.targetId=null;b.modeUntil=0;b.boostUntil=0;b.boostDecisionAt=0;b.history=[];}continue}
   b.prevX=b.x;b.prevY=b.y;b.prevAngle=b.angle;b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
   const speed=Math.hypot(b.vx,b.vy);
   const prey=b.targetId&&(botShips.get(b.targetId)||ships.get(b.targetId));
@@ -215,6 +305,14 @@ function step(dt){serverTime+=dt;
   // Avoid planets, but keep the pursuit goal intact.
   for(const p of planets){const dx=b.x+b.vx*.83-p.x,dy=b.y+b.vy*.83-p.y,d=Math.hypot(dx,dy);
    if(d<p.r+150){aim=Math.atan2(dy,dx)+Math.sign(Math.sin(aim-Math.atan2(dy,dx))||1)*.36;break}}
+  // Gentle separation from other bots, except our selected target in a real attack.
+  let sepX=0,sepY=0,contacts=0;
+  for(const other of botShips.values()){
+   if(other===b||!other.alive||other.id===b.targetId)continue;
+   const dx=b.x-other.x,dy=b.y-other.y,d=Math.hypot(dx,dy);
+   if(d>1&&d<b.space){const weight=Math.pow(1-d/b.space,2);sepX+=dx/d*weight;sepY+=dy/d*weight;contacts++;}
+  }
+  if(contacts){const weight=clamp(Math.hypot(sepX,sepY)*.7,0,.8);const escape=Math.atan2(sepY,sepX);aim=Math.atan2(Math.sin(aim)*(1-weight)+Math.sin(escape)*weight,Math.cos(aim)*(1-weight)+Math.cos(escape)*weight);}
   b.target=aim;
   const wallDanger=avoidWall(b);
   const diff=Math.atan2(Math.sin(b.target-b.angle),Math.cos(b.target-b.angle));
@@ -231,6 +329,7 @@ function step(dt){serverTime+=dt;
   b.boosting=b.energy>4&&serverTime<b.boostUntil;
   b.energy=clamp(b.energy+(b.boosting?-34:23)*dt,0,100);
   const acc=b.boosting&&b.energy>0?640:300;
+  const beforeSpeed=Math.hypot(b.vx,b.vy);
   b.vx=b.vx*Math.pow(.991,dt*60)+Math.cos(b.angle)*acc*dt;
   b.vy=b.vy*Math.pow(.991,dt*60)+Math.sin(b.angle)*acc*dt;
   const cap=b.boosting?(560+Math.min(b.level,14)*7+75*(b.skill-.60)):(365+Math.min(b.level,10)*7);
@@ -238,7 +337,7 @@ function step(dt){serverTime+=dt;
   const edge=WORLD-16;
   if(Math.abs(b.x)>edge-85&&b.vx*Math.sign(b.x)>0)b.vx*=Math.pow(.92,dt*60);
   if(Math.abs(b.y)>edge-85&&b.vy*Math.sign(b.y)>0)b.vy*=Math.pow(.92,dt*60);
-  let v=Math.hypot(b.vx,b.vy);if(v>cap){b.vx*=cap/v;b.vy*=cap/v}
+  let v=Math.hypot(b.vx,b.vy);const allowed=(!b.boosting&&!wallDanger)?Math.max(cap,beforeSpeed):cap;if(v>allowed){b.vx*=allowed/v;b.vy*=allowed/v}
   for(const p of planets){let dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy);
    if(d>p.r&&d<p.r*3.25){let inf=Math.pow(1-(d-p.r)/(p.r*2.25),1.7),s=Math.hypot(b.vx,b.vy);
     b.vx+=dx/d*335*inf*dt;b.vy+=dy/d*335*inf*dt;let ns=Math.hypot(b.vx,b.vy);if(ns){b.vx*=s/ns;b.vy*=s/ns}}}
@@ -248,6 +347,7 @@ function step(dt){serverTime+=dt;
    let dot=b.vx*nx+b.vy*ny;if(dot<0){b.vx-=1.7*dot*nx;b.vy-=1.7*dot*ny}b.vx*=.65;b.vy*=.65;}}
   if(Math.abs(b.x)>WORLD-16){b.x=clamp(b.x,-WORLD+16,WORLD-16);b.vx*=-.55}
   if(Math.abs(b.y)>WORLD-16){b.y=clamp(b.y,-WORLD+16,WORLD-16);b.vy*=-.55}
+  recordHistory(b);
  }
  for(const p of ships.values())p.invuln=Math.max(0,p.invuln-dt);
  const all=[...ships.values(),...botShips.values()].filter(x=>x.alive);
@@ -273,5 +373,9 @@ app.on('upgrade',(req,socket)=>{if(req.url!=='/live'||req.headers.upgrade?.toLow
  const accept=crypto.createHash('sha1').update(req.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
  const c={socket,buffer:Buffer.alloc(0),joined:false,id:null,userId:null,authPending:false};peers.add(c);socket.on('data',b=>consume(c,b));socket.on('error',()=>{});socket.on('close',()=>{depart(c);peers.delete(c)});
 });
-fillSlots();let prev=Date.now(),broadcastElapsed=0,planetSyncElapsed=0;setInterval(()=>{let now=Date.now(),dt=clamp((now-prev)/1000,0,.07);prev=now;step(dt);broadcastElapsed+=dt;planetSyncElapsed+=dt;if(broadcastElapsed>=.05){broadcastElapsed=0;const state={type:'state',humans:ships.size,bots:botShips.size,ships:[...ships.values(),...botShips.values()].filter(x=>x.alive).map(pack)};if(planetSyncElapsed>=.5){state.planets=planets;planetSyncElapsed=0;}broadcast(state)}},1000/30);
-app.listen(PORT,'0.0.0.0',()=>console.log('MOMENTUM.IO beta shared arena listening on '+PORT));
+if(process.env.MOMENTUM_ENGINE_TEST==='1'){
+ module.exports={ships,botShips,planets,fillSlots,spawn,step,collide,resolveImpact,validatedClientContact,recordHistory,hullAt,hullsOverlap,createBot};
+}else{
+ fillSlots();let prev=Date.now(),broadcastElapsed=0,planetSyncElapsed=0;setInterval(()=>{let now=Date.now(),dt=clamp((now-prev)/1000,0,.07);prev=now;step(dt);broadcastElapsed+=dt;planetSyncElapsed+=dt;if(broadcastElapsed>=.05){broadcastElapsed=0;const state={type:'state',at:Date.now(),humans:ships.size,bots:botShips.size,ships:[...ships.values(),...botShips.values()].filter(x=>x.alive).map(pack)};if(planetSyncElapsed>=.5){state.planets=planets;planetSyncElapsed=0;}broadcast(state)}},1000/30);
+ app.listen(PORT,'0.0.0.0',()=>console.log('MOMENTUM.IO beta shared arena listening on '+PORT));
+}
