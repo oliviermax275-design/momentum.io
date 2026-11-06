@@ -32,7 +32,23 @@ for(const [type,count] of [['large',2],['medium',5],['small',9]])for(let k=0;k<c
 }
 function emptyAt(x,y,extra=40){return !planets.some(p=>Math.hypot(p.x-x,p.y-y)<p.r+extra)}
 function spawn(){for(let i=0;i<100;i++){let x=rand(-3500,3500),y=rand(-3500,3500);if(emptyAt(x,y,220)&&[...ships.values(),...botShips.values()].every(s=>Math.hypot(s.x-x,s.y-y)>160))return {x,y}}return {x:0,y:0}}
-function createBot(){let p=spawn(),id='bot-'+(++nextId);return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,vx:rand(-80,80),vy:rand(-80,80),angle:rand(-3,3),hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,boosting:false,invuln:2,thought:0,target:0,targetId:null,roamUntil:0,engageUntil:0,avoidUntil:0,respawn:0,alive:true}}
+function createBot(){
+ const p=spawn(),id='bot-'+(++nextId);
+ // Des comportements persistants : certains attaquent, d'autres explorent,
+ // d'autres saisissent les occasions ou se replient si l'angle est mauvais.
+ const role=Math.random();
+ const style=role<.30?'hunter':role<.58?'balanced':role<.80?'scavenger':'cautious';
+ const aggression={hunter:.88,balanced:.60,scavenger:.43,cautious:.30}[style];
+ const skill=rand(.52,1),courage=rand(.33,.95);
+ const angle=rand(-Math.PI,Math.PI);
+ return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,
+  vx:Math.cos(angle)*rand(85,185),vy:Math.sin(angle)*rand(85,185),angle,
+  hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,
+  boosting:false,invuln:2,thought:0,target:angle,targetId:null,
+  style,aggression,skill,courage,mode:'cruise',modeUntil:0,aimX:p.x+500*Math.cos(angle),aimY:p.y+500*Math.sin(angle),
+  passes:0,failedApproaches:0,lastDistance:Infinity,stuckFor:0,prevX:p.x,prevY:p.y,
+  engageUntil:0,roamUntil:0,avoidUntil:0,respawn:0,alive:true};
+}
 function fillSlots(){const want=Math.max(0,20-ships.size);while(botShips.size>want)botShips.delete(botShips.keys().next().value);while(botShips.size<want){const b=createBot();botShips.set(b.id,b)}}
 function pack(p){return {id:p.id,bot:!!p.bot,name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,hue:p.hue,level:p.level,score:p.score,energy:p.energy,boosting:p.boosting,invuln:p.invuln}}
 function depart(c){if(!c.joined)return;c.joined=false;ships.delete(c.id);fillSlots()}
@@ -65,22 +81,43 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   const age=Math.max(.015,Math.min(.25,(Date.now()-p.last)/1000));
   // Basic plausibility check; not a substitute for true authoritative physics.
   if(Math.hypot(x-p.x,y-p.y)>Math.max(140,top*age*3.3)&&Date.now()-p.last<1200)return;
-  p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();
+  p.prevX=p.x;p.prevY=p.y;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();
  }
 }
-function collide(a,b){if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
- const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>37)return;
- const ax=a.x+Math.cos(a.angle)*22,ay=a.y+Math.sin(a.angle)*22;
- const bx=b.x+Math.cos(b.angle)*22,by=b.y+Math.sin(b.angle)*22;
- const at=Math.hypot(ax-b.x,ay-b.y)<19,bt=Math.hypot(bx-a.x,by-a.y)<19;
- if(!at&&!bt)return;
+function collide(a,b){
+ if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
+ // Balayage de la trajectoire entre deux simulations : un contact à pleine
+ // vitesse ne doit pas passer entre deux images du serveur.
+ const ax0=Number.isFinite(a.prevX)?a.prevX:a.x,ay0=Number.isFinite(a.prevY)?a.prevY:a.y;
+ const bx0=Number.isFinite(b.prevX)?b.prevX:b.x,by0=Number.isFinite(b.prevY)?b.prevY:b.y;
+ const r0x=bx0-ax0,r0y=by0-ay0,drx=(b.x-bx0)-(a.x-ax0),dry=(b.y-by0)-(a.y-ay0);
+ const t=clamp(-(r0x*drx+r0y*dry)/(drx*drx+dry*dry||1),0,1);
+ // Tester le point d'approche maximal ainsi que les positions actuelles.
+ let best=null;
+ for(const f of [0,t,1]){
+  const ax=ax0+(a.x-ax0)*f,ay=ay0+(a.y-ay0)*f;
+  const bx=bx0+(b.x-bx0)*f,by=by0+(b.y-by0)*f;
+  const dx=bx-ax,dy=by-ay,d2=dx*dx+dy*dy;
+  if(d2>41*41)continue;
+  const tipAx=ax+Math.cos(a.angle)*22,tipAy=ay+Math.sin(a.angle)*22;
+  const tipBx=bx+Math.cos(b.angle)*22,tipBy=by+Math.sin(b.angle)*22;
+  const aTip=Math.hypot(tipAx-bx,tipAy-by)<21;
+  const bTip=Math.hypot(tipBx-ax,tipBy-ay)<21;
+  if(!aTip&&!bTip)continue;
+  if(!best||d2<best.d2)best={aTip,bTip,d2};
+ }
+ if(!best)return;
  let winner,loser;
- if(at&&bt){let va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);if(Math.abs(va-vb)<18)return;winner=va>vb?a:b;loser=winner===a?b:a}
- else {winner=at?a:b;loser=at?b:a}
+ if(best.aTip&&best.bTip){
+  const va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);
+  if(Math.abs(va-vb)<18)return;
+  winner=va>vb?a:b;loser=winner===a?b:a;
+ }else{winner=best.aTip?a:b;loser=winner===a?b:a}
  loser.invuln=5;loser.alive=false;
  if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id,x:loser.x,y:loser.y,level:loser.level,hue:loser.hue,killer:winner.id});}
- else {const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
- if(winner.bot){winner.score+=140+22*loser.level;winner.level=Math.min(100,1+Math.floor(winner.score/950));}else {const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
+ else{const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
+ if(winner.bot){winner.score+=140+22*loser.level;winner.level=Math.min(100,1+Math.floor(winner.score/950));}
+ else {const c=[...peers].find(c=>c.id===winner.id);if(c)send(c,{type:'reward',victim:loser.id,level:loser.level})}
 }
 // Les bots anticipent les murs suivant leur vitesse (pas de modification des joueurs).
 function avoidWall(b){
@@ -99,74 +136,122 @@ function avoidWall(b){
  b.target=heading;
  return true;
 }
+function chooseBotMode(b){
+ const speed=Math.hypot(b.vx,b.vy);
+ // Détermination d'une intention persistante, plutôt que de changer de cible
+ // à chaque image. Les cibles sont choisies selon leur proximité et leur cap.
+ const nearby=[...botShips.values(),...ships.values()].filter(q=>q!==b&&q.alive&&q.invuln<=0)
+  .map(q=>({q,dist:Math.hypot(q.x-b.x,q.y-b.y)})).filter(e=>e.dist>95&&e.dist<1500);
+ let choice=null,best=-Infinity;
+ for(const {q,dist} of nearby){
+  const facing=Math.cos(Math.atan2(q.y-b.y,q.x-b.x)-b.angle);
+  const themFacing=Math.cos(Math.atan2(b.y-q.y,b.x-q.x)-q.angle);
+  const score=2*(1-dist/1500)+facing*.65+Math.random()*.75+(q.bot?.24:-.05)
+   +((b.style==='hunter')?.35:0)-(themFacing>.7&&b.style==='cautious'?.5:0);
+  if(score>best){best=score;choice=q}
+ }
+ const probability=b.aggression*(b.mode==='hunt'?.93:1);
+ if(choice&&Math.random()<probability){
+  b.mode='hunt';b.targetId=choice.id;
+  b.modeUntil=serverTime+rand(3.6,7.2)*(b.style==='hunter'?1.35:1);
+  b.passes=0;b.failedApproaches=0;b.lastDistance=Infinity;
+ }else{
+  b.mode=Math.random()<(b.style==='scavenger'?.55:.27)?'forage':'cruise';
+  b.targetId=null;b.modeUntil=serverTime+rand(2.5,5.5);
+  const angle=b.angle+rand(-.75,.75);
+  b.aimX=clamp(b.x+Math.cos(angle)*rand(650,1450),-WORLD+500,WORLD-500);
+  b.aimY=clamp(b.y+Math.sin(angle)*rand(650,1450),-WORLD+500,WORLD-500);
+ }
+}
 function step(dt){serverTime+=dt;
  for(const p of planets){p.x+=p.vx*dt;p.y+=p.vy*dt;for(const axis of ['x','y'])if(Math.abs(p[axis])>WORLD-p.r-150){p[axis]=clamp(p[axis],-WORLD+p.r+150,WORLD-p.r-150);p['v'+axis]*=-1}}
  for(const b of botShips.values()){
-  if(!b.alive){if(serverTime>=b.respawn){let x=spawn();b.x=x.x;b.y=x.y;b.invuln=2;b.vx=b.vy=0;b.alive=true}continue}
-  b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
-  if(b.thought<=0){
-   // Phases distinctes : patrouille, courte interception, puis désengagement.
-   // Cela évite les poursuites circulaires interminables entre deux bots.
-   b.thought=rand(.85,1.6);
-   const canEngage=serverTime>=b.roamUntil && Math.random()<.48;
-   const choices=canEngage?[...botShips.values(),...ships.values()].filter(q=>q!==b&&q.alive&&q.invuln<=0&&Math.hypot(q.x-b.x,q.y-b.y)>185&&Math.hypot(q.x-b.x,q.y-b.y)<1150):[];
-   // Ne jamais concentrer automatiquement la totalité des bots sur le joueur.
-   const botChoices=choices.filter(q=>q.bot),humanChoices=choices.filter(q=>!q.bot);
-   const pool=botChoices.length&&(Math.random()<.78||!humanChoices.length)?botChoices:humanChoices;
-   const target=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
-   b.targetId=target?.id||null;
-   if(target){b.engageUntil=serverTime+rand(1.5,3);}
-   else{
-    b.engageUntil=0;
-    // Cap libre et durable ; jamais de réorientation autour d'une cible proche.
-    b.roamUntil=Math.max(b.roamUntil,serverTime+rand(1.8,4.0));
-    b.target=b.angle+rand(-.9,.9);
-   }
+  if(!b.alive){if(serverTime>=b.respawn){const pos=spawn();b.x=pos.x;b.y=pos.y;b.prevX=b.x;b.prevY=b.y;
+   b.invuln=2;b.vx=b.vy=0;b.alive=true;b.mode='cruise';b.targetId=null;b.modeUntil=0;b.passes=0;}continue}
+  b.prevX=b.x;b.prevY=b.y;b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
+  let speed=Math.hypot(b.vx,b.vy);
+  const prey=b.targetId&&(botShips.get(b.targetId)||ships.get(b.targetId));
+  if(b.mode==='hunt'&&(!prey?.alive||serverTime>b.modeUntil)){
+   b.targetId=null;b.mode='cruise';b.modeUntil=serverTime+rand(.8,2.2);
   }
-  const chase=b.targetId&&(botShips.get(b.targetId)||ships.get(b.targetId));
-  const dist=chase?.alive?Math.hypot(chase.x-b.x,chase.y-b.y):Infinity;
-  // Fin de poursuite dès que la cible est proche / tourne en rond / après quelques secondes.
-  if(!chase?.alive||serverTime>b.engageUntil||dist<190||dist>1450){
-   if(b.targetId){
-    b.targetId=null;b.engageUntil=0;b.roamUntil=serverTime+rand(2.4,4.8);
-    b.target=b.angle+rand(-.65,.65);
-    b.thought=Math.max(b.thought,1.2);
+  if(serverTime>b.modeUntil)chooseBotMode(b);
+  let aim=b.angle;
+  if(b.mode==='hunt'&&prey?.alive){
+   const dx=prey.x-b.x,dy=prey.y-b.y,dist=Math.hypot(dx,dy);
+   // Interception dynamique avec déviation latérale faible et limitée dans le temps.
+   const closing=Math.max(140,speed+Math.hypot(prey.vx,prey.vy)*.35);
+   const lead=clamp(dist/closing,.10,.72)*b.skill;
+   let tx=prey.x+prey.vx*lead,ty=prey.y+prey.vy*lead;
+   aim=Math.atan2(ty-b.y,tx-b.x);
+   // À très courte distance, ne pas effectuer des tours sur place : continuer
+   // la passe d'attaque. Le bot pourra faire UNE nouvelle tentative, puis repartir.
+   if(dist<145){
+    b.passes++;b.mode='pass';b.modeUntil=serverTime+rand(.45,.9);
+    b.targetId=null;b.target=aim;
+   }else if(dist>b.lastDistance+55&&b.lastDistance<230){
+    b.failedApproaches++;
+    if(b.failedApproaches>=2){b.mode='cruise';b.modeUntil=serverTime+rand(1.2,2.7);b.targetId=null;b.target=b.angle+rand(-.4,.4)}
    }
+   b.lastDistance=dist;
+  }else if(b.mode==='pass'){
+   aim=b.target;
+   if(serverTime>b.modeUntil){b.mode='cruise';b.modeUntil=serverTime+rand(.7,1.6);b.targetId=null;}
   }else{
-   // Vise le point d'interception en avance sur la trajectoire, pas la queue du vaisseau.
-   const lead=clamp(dist/600,.12,.72);
-   const aim=Math.atan2(chase.y+chase.vy*lead-b.y,chase.x+chase.vx*lead-b.x);
-   const delta=Math.atan2(Math.sin(aim-b.angle),Math.cos(aim-b.angle));
-   // Si le cap exige un demi-tour presque complet, la poursuite est abandonnée.
-   if(Math.abs(delta)>2.3&&dist<550){b.targetId=null;b.roamUntil=serverTime+3;b.target=b.angle+rand(-.55,.55);}
-   else b.target=aim;
+   aim=Math.atan2(b.aimY-b.y,b.aimX-b.x);
+   if(Math.hypot(b.aimX-b.x,b.aimY-b.y)<150)b.modeUntil=0;
   }
-
-  for(const p of planets){let dx=b.x+b.vx*.5-p.x,dy=b.y+b.vy*.5-p.y,d=Math.hypot(dx,dy);if(d<p.r+130){b.target=Math.atan2(dy,dx)+.35;break}}
+  // Un adversaire qui s'approche pointe en avant peut déclencher une brève
+  // esquive, mais ne fait pas fuir tous les bots indéfiniment.
+  if(b.mode!=='pass'&&b.style!=='hunter'&&serverTime>b.avoidUntil){
+   for(const q of [...ships.values(),...botShips.values()]){
+    if(q===b||!q.alive)continue;
+    const d=Math.hypot(q.x-b.x,q.y-b.y);
+    if(d>215||d<20)continue;
+    const towards=Math.cos(q.angle-Math.atan2(b.y-q.y,b.x-q.x));
+    if(towards>.83&&Math.hypot(q.vx,q.vy)>speed*.90&&Math.random()<(.014*(1-b.courage))){
+     b.mode='evade';b.modeUntil=serverTime+rand(.65,1.25);b.targetId=null;
+     b.target=Math.atan2(b.y-q.y,b.x-q.x)+(Math.random()<.5?.6:-.6);b.avoidUntil=serverTime+4;break;
+    }
+   }
+  }
+  if(b.mode==='evade')aim=b.target;
+  // Les planètes sont évitées sans annuler continuellement l'objectif.
+  for(const p of planets){let dx=b.x+b.vx*.65-p.x,dy=b.y+b.vy*.65-p.y,d=Math.hypot(dx,dy);
+   if(d<p.r+125){aim=Math.atan2(dy,dx)+.32;break}}
+  b.target=aim;
   const wallDanger=avoidWall(b);
-  let diff=Math.atan2(Math.sin(b.target-b.angle),Math.cos(b.target-b.angle)),v=Math.hypot(b.vx,b.vy);
-  b.angle+=clamp(diff,-(wallDanger?4.3:2.5)*dt,(wallDanger?4.3:2.5)*dt);b.boosting=!wallDanger&&Math.sin(serverTime*.7+b.hue)>.25;
+  const diff=Math.atan2(Math.sin(b.target-b.angle),Math.cos(b.target-b.angle));
+  const turnSpeed=(wallDanger?4.2:(1.9+b.skill*.95));
+  b.angle+=clamp(diff,-turnSpeed*dt,turnSpeed*dt);
+  // Rythme de boost différent selon le pilote : franches accélérations pour
+  // intercepter, respiration en exploration, freinage aux murs.
+  const boostIntent=b.mode==='hunt'?(.72+b.aggression*.22):b.mode==='pass'?.70:b.mode==='evade'?.81:b.mode==='forage'?.33:.45;
+  b.boosting=!wallDanger&&b.energy>15&&Math.sin(serverTime*(.6+b.skill*.3)+b.hue) > (1-2*boostIntent);
   b.energy=clamp(b.energy+(b.boosting?-24:14)*dt,0,100);
-  let acc=b.boosting&&b.energy>0?520:270;
+  const acc=b.boosting&&b.energy>0?520:270;
   b.vx=b.vx*Math.pow(.991,dt*60)+Math.cos(b.angle)*acc*dt;
   b.vy=b.vy*Math.pow(.991,dt*60)+Math.sin(b.angle)*acc*dt;
-  v=Math.hypot(b.vx,b.vy);let cap=b.boosting?440:326;
+  let cap=b.boosting?440:326;
   if(wallDanger){
-   cap=Math.min(cap,185);
-   // A l'approche des murs, réduire la composante allant vers l'extérieur.
-   const safe=WORLD-16-290;
+   cap=Math.min(cap,185);const safe=WORLD-16-290;
    if(Math.abs(b.x)>safe&&b.vx*Math.sign(b.x)>0)b.vx*=Math.pow(.92,dt*60);
    if(Math.abs(b.y)>safe&&b.vy*Math.sign(b.y)>0)b.vy*=Math.pow(.92,dt*60);
   }
-  v=Math.hypot(b.vx,b.vy);if(v>cap){b.vx*=cap/v;b.vy*=cap/v}
-  for(const p of planets){let dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy);if(d>p.r&&d<p.r*3.25){let inf=Math.pow(1-(d-p.r)/(p.r*2.25),1.7),s=Math.hypot(b.vx,b.vy);b.vx+=dx/d*335*inf*dt;b.vy+=dy/d*335*inf*dt;let ns=Math.hypot(b.vx,b.vy);if(ns){b.vx*=s/ns;b.vy*=s/ns}}}
+  let v=Math.hypot(b.vx,b.vy);if(v>cap){b.vx*=cap/v;b.vy*=cap/v}
+  for(const p of planets){let dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy);
+   if(d>p.r&&d<p.r*3.25){let inf=Math.pow(1-(d-p.r)/(p.r*2.25),1.7),s=Math.hypot(b.vx,b.vy);
+    b.vx+=dx/d*335*inf*dt;b.vy+=dy/d*335*inf*dt;let ns=Math.hypot(b.vx,b.vy);if(ns){b.vx*=s/ns;b.vy*=s/ns}}}
   b.x+=b.vx*dt;b.y+=b.vy*dt;
-  for(const p of planets){let dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),lim=p.r+13;if(d<lim){let nx=dx/(d||1),ny=dy/(d||1);b.x=p.x+nx*lim;b.y=p.y+ny*lim;let dot=b.vx*nx+b.vy*ny;if(dot<0){b.vx-=1.7*dot*nx;b.vy-=1.7*dot*ny}b.vx*=.65;b.vy*=.65;}}
-  if(Math.abs(b.x)>WORLD-16){b.x=clamp(b.x,-WORLD+16,WORLD-16);b.vx*=-.55}if(Math.abs(b.y)>WORLD-16){b.y=clamp(b.y,-WORLD+16,WORLD-16);b.vy*=-.55}
+  for(const p of planets){let dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),lim=p.r+13;if(d<lim){let nx=dx/(d||1),ny=dy/(d||1);b.x=p.x+nx*lim;b.y=p.y+ny*lim;
+   let dot=b.vx*nx+b.vy*ny;if(dot<0){b.vx-=1.7*dot*nx;b.vy-=1.7*dot*ny}b.vx*=.65;b.vy*=.65;}}
+  if(Math.abs(b.x)>WORLD-16){b.x=clamp(b.x,-WORLD+16,WORLD-16);b.vx*=-.55}
+  if(Math.abs(b.y)>WORLD-16){b.y=clamp(b.y,-WORLD+16,WORLD-16);b.vy*=-.55}
  }
  for(const p of ships.values())p.invuln=Math.max(0,p.invuln-dt);
  const all=[...ships.values(),...botShips.values()].filter(x=>x.alive);
  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++)collide(all[i],all[j]);
+ // Une trajectoire reçue du client ne doit pas être retestée aux ticks suivants.
+ for(const p of ships.values()){p.prevX=p.x;p.prevY=p.y}
 }
 const app=http.createServer((req,res)=>{
  let url;try{url=new URL(req.url,'http://localhost')}catch{res.writeHead(400).end();return}
