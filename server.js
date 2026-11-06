@@ -32,7 +32,7 @@ for(const [type,count] of [['large',2],['medium',5],['small',9]])for(let k=0;k<c
 }
 function emptyAt(x,y,extra=40){return !planets.some(p=>Math.hypot(p.x-x,p.y-y)<p.r+extra)}
 function spawn(){for(let i=0;i<100;i++){let x=rand(-3500,3500),y=rand(-3500,3500);if(emptyAt(x,y,220)&&[...ships.values(),...botShips.values()].every(s=>Math.hypot(s.x-x,s.y-y)>160))return {x,y}}return {x:0,y:0}}
-function createBot(){let p=spawn(),id='bot-'+(++nextId);return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,vx:rand(-80,80),vy:rand(-80,80),angle:rand(-3,3),hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,boosting:false,invuln:2,thought:0,target:0,respawn:0,alive:true}}
+function createBot(){let p=spawn(),id='bot-'+(++nextId);return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,vx:rand(-80,80),vy:rand(-80,80),angle:rand(-3,3),hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,boosting:false,invuln:2,thought:0,target:0,targetId:null,roamUntil:0,engageUntil:0,avoidUntil:0,respawn:0,alive:true}}
 function fillSlots(){const want=Math.max(0,20-ships.size);while(botShips.size>want)botShips.delete(botShips.keys().next().value);while(botShips.size<want){const b=createBot();botShips.set(b.id,b)}}
 function pack(p){return {id:p.id,bot:!!p.bot,name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,hue:p.hue,level:p.level,score:p.score,energy:p.energy,boosting:p.boosting,invuln:p.invuln}}
 function depart(c){if(!c.joined)return;c.joined=false;ships.delete(c.id);fillSlots()}
@@ -105,22 +105,42 @@ function step(dt){serverTime+=dt;
   if(!b.alive){if(serverTime>=b.respawn){let x=spawn();b.x=x.x;b.y=x.y;b.invuln=2;b.vx=b.vy=0;b.alive=true}continue}
   b.invuln=Math.max(0,b.invuln-dt);b.thought-=dt;
   if(b.thought<=0){
-   // Agressivité distribuée : les bots cherchent surtout d'autres bots, pas exclusivement le joueur.
-   // Un cap persistant évite les zigzags à chaque tick.
-   b.thought=rand(.65,1.65);
-   const botTargets=[...botShips.values()].filter(q=>q!==b&&q.alive&&q.invuln<=0&&Math.hypot(q.x-b.x,q.y-b.y)<1350);
-   const humanTargets=[...ships.values()].filter(q=>q.alive&&q.invuln<=0&&Math.hypot(q.x-b.x,q.y-b.y)<1050);
-   let target=null;
-   // ~82 % des engagements choisis parmi les autres bots lorsqu'ils sont disponibles.
-   const pool=(botTargets.length&&(Math.random()<.82||!humanTargets.length))?botTargets:humanTargets;
-   if(pool.length){pool.sort((q,r)=>Math.hypot(q.x-b.x,q.y-b.y)-Math.hypot(r.x-b.x,r.y-b.y));target=pool[Math.floor(Math.random()*Math.min(3,pool.length))];}
-   if(!target&&botTargets.length)target=botTargets[0];
+   // Phases distinctes : patrouille, courte interception, puis désengagement.
+   // Cela évite les poursuites circulaires interminables entre deux bots.
+   b.thought=rand(.85,1.6);
+   const canEngage=serverTime>=b.roamUntil && Math.random()<.48;
+   const choices=canEngage?[...botShips.values(),...ships.values()].filter(q=>q!==b&&q.alive&&q.invuln<=0&&Math.hypot(q.x-b.x,q.y-b.y)>185&&Math.hypot(q.x-b.x,q.y-b.y)<1150):[];
+   // Ne jamais concentrer automatiquement la totalité des bots sur le joueur.
+   const botChoices=choices.filter(q=>q.bot),humanChoices=choices.filter(q=>!q.bot);
+   const pool=botChoices.length&&(Math.random()<.78||!humanChoices.length)?botChoices:humanChoices;
+   const target=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
    b.targetId=target?.id||null;
-   b.target=target?Math.atan2(target.y-b.y+target.vy*.22,target.x-b.x+target.vx*.22):b.angle+rand(-1.5,1.5);
+   if(target){b.engageUntil=serverTime+rand(1.5,3);}
+   else{
+    b.engageUntil=0;
+    // Cap libre et durable ; jamais de réorientation autour d'une cible proche.
+    b.roamUntil=Math.max(b.roamUntil,serverTime+rand(1.8,4.0));
+    b.target=b.angle+rand(-.9,.9);
+   }
   }
-  // Réajuste doucement la visée vers la cible courante, y compris les bots.
   const chase=b.targetId&&(botShips.get(b.targetId)||ships.get(b.targetId));
-  if(chase?.alive&&Math.hypot(chase.x-b.x,chase.y-b.y)<1500){b.target=Math.atan2(chase.y-b.y+chase.vy*.24,chase.x-b.x+chase.vx*.24);}
+  const dist=chase?.alive?Math.hypot(chase.x-b.x,chase.y-b.y):Infinity;
+  // Fin de poursuite dès que la cible est proche / tourne en rond / après quelques secondes.
+  if(!chase?.alive||serverTime>b.engageUntil||dist<190||dist>1450){
+   if(b.targetId){
+    b.targetId=null;b.engageUntil=0;b.roamUntil=serverTime+rand(2.4,4.8);
+    b.target=b.angle+rand(-.65,.65);
+    b.thought=Math.max(b.thought,1.2);
+   }
+  }else{
+   // Vise le point d'interception en avance sur la trajectoire, pas la queue du vaisseau.
+   const lead=clamp(dist/600,.12,.72);
+   const aim=Math.atan2(chase.y+chase.vy*lead-b.y,chase.x+chase.vx*lead-b.x);
+   const delta=Math.atan2(Math.sin(aim-b.angle),Math.cos(aim-b.angle));
+   // Si le cap exige un demi-tour presque complet, la poursuite est abandonnée.
+   if(Math.abs(delta)>2.3&&dist<550){b.targetId=null;b.roamUntil=serverTime+3;b.target=b.angle+rand(-.55,.55);}
+   else b.target=aim;
+  }
 
   for(const p of planets){let dx=b.x+b.vx*.5-p.x,dy=b.y+b.vy*.5-p.y,d=Math.hypot(dx,dy);if(d<p.r+130){b.target=Math.atan2(dy,dx)+.35;break}}
   const wallDanger=avoidWall(b);
