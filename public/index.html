@@ -915,9 +915,9 @@ function collisions(){
 }
 function update(dt){updateTutorial();if(player&&player.alive){currentRunElapsed+=dt;runMaxSpeed=Math.max(runMaxSpeed,kmh(hyp(player.vx,player.vy)));}gameTime+=dt;updateTokens(dt);elapsed+=dt;shake*=Math.pow(.84,dt*60);if(noticeTime>0){noticeTime-=dt;if(noticeTime<=0)UI.notice.style.opacity=0}if(toastTime>0){toastTime-=dt;if(toastTime<=0)UI.toast.style.opacity=0}if(!arenaId)advancePlanets(dt);updateEntity(player,dt);if(player&&player.alive)soundMotor(hyp(player.vx,player.vy),player.boosting);if(arenaId){bots=[];netReport(dt);for(const e of remoteById.values()){
   if(Number.isFinite(e.netX)&&Number.isFinite(e.netY)){
-   const factor=1-Math.exp(-dt*17);
+   const factor=1-Math.exp(-dt*27);
    // Faible prédiction du mouvement entre deux paquets, sans à-coups.
-   const lag=clamp((performance.now()-(e.netUpdated||performance.now()))/1000,0,.075);
+   const lag=clamp((performance.now()-(e.netUpdated||performance.now()))/1000,0,.11);
    e.x+=(e.netX+e.vx*lag-e.x)*factor;
    e.y+=(e.netY+e.vy*lag-e.y)*factor;
    const delta=Math.atan2(Math.sin(e.netAngle-e.angle),Math.cos(e.netAngle-e.angle));

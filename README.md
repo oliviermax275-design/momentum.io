@@ -18,3 +18,13 @@ Cette archive contient **le jeu entier**, `public/index.html`, et le serveur `se
 
 ## Limites à connaître
 Il s'agit toujours d'une **bêta multijoueur**. Les mouvements des vrais joueurs viennent du client, et le serveur n'est pas entièrement autoritaire. La correction des contacts réduit les impacts traversants, mais la latence réseau et les corrections visuelles peuvent en laisser apparaître. Les soldes de jetons / récompenses ne sont pas assez sécurisés pour activer les paiements réels. Ne branche pas Stripe en production à cette version.
+
+## Correctif de collisions (pointe, arrière et traversées)
+
+- Le serveur détecte les contacts selon les **polygones réels** des vaisseaux, et non leur centre seulement.
+- Les mouvements entre deux mises à jour sont échantillonnés de façon adaptative (y compris le point de rapprochement maximal) pour limiter les traversées.
+- Pointe contre arrière/flanc : l'attaquant élimine la cible; pointe contre pointe : avantage à la vitesse; flanc contre flanc : contact et rebond.
+- Le rendu des vaisseaux distants rattrape plus rapidement leurs positions réseau. Il peut rester des écarts visibles en cas de forte latence, et la simulation de la physique des joueurs demeure partiellement locale dans cette bêta.
+- Tests de régression fournis dans `tests/collisions.test.js` (Node.js). Pour les lancer : `npm test`.
+
+Le correctif conserve les contrôles, les planètes, les comptes Supabase et l'économie de la version fournie. N'activez pas de paiements réels dans cette bêta.

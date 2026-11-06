@@ -84,35 +84,62 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   p.prevX=p.x;p.prevY=p.y;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();
  }
 }
+// Géométrie du vaisseau identique au tracé canvas du client (pointe à +22).
+const HULL_LOCAL=[[22,0],[-12,-13],[-6,0],[-12,13]];
+function hullAt(e,x,y){const c=Math.cos(e.angle),s=Math.sin(e.angle);return HULL_LOCAL.map(([hx,hy])=>({x:x+hx*c-hy*s,y:y+hx*s+hy*c}))}
+function pointSegDist2(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,d=dx*dx+dy*dy;const t=d?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/d,0,1):0;return (p.x-a.x-t*dx)**2+(p.y-a.y-t*dy)**2}
+// Le polygone est concave (entailles latérales), donc utiliser un rayon au lieu
+// du test de demi-plans convexes.
+function insideShip(p,h){let inside=false;for(let i=0,j=h.length-1;i<h.length;j=i++){
+ const a=h[i],b=h[j];if(pointSegDist2(p,a,b)<1e-6)return true;
+ if((a.y>p.y)!=(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+ }return inside}
+function segmentsIntersect(a,b,c,d){
+ const abx=b.x-a.x,aby=b.y-a.y,cdx=d.x-c.x,cdy=d.y-c.y,den=abx*cdy-aby*cdx;
+ if(Math.abs(den)<1e-8)return pointSegDist2(a,c,d)<1e-6||pointSegDist2(b,c,d)<1e-6||pointSegDist2(c,a,b)<1e-6||pointSegDist2(d,a,b)<1e-6;
+ const rx=c.x-a.x,ry=c.y-a.y,t=(rx*cdy-ry*cdx)/den,u=(rx*aby-ry*abx)/den;
+ return t>=0&&t<=1&&u>=0&&u<=1;
+}
+function hullTouch(a,b){if(a.some(p=>insideShip(p,b))||b.some(p=>insideShip(p,a)))return true;
+ for(let i=0;i<4;i++)for(let j=0;j<4;j++)if(segmentsIntersect(a[i],a[(i+1)%4],b[j],b[(j+1)%4]))return true;return false}
+function tipTouches(tip,other){if(insideShip(tip,other))return true;for(let i=0;i<4;i++)if(pointSegDist2(tip,other[i],other[(i+1)%4])<=9*9)return true;return false}
 function collide(a,b){
  if(a.invuln>0||b.invuln>0||!a.alive||!b.alive)return;
- // Balayage de la trajectoire entre deux simulations : un contact à pleine
- // vitesse ne doit pas passer entre deux images du serveur.
  const ax0=Number.isFinite(a.prevX)?a.prevX:a.x,ay0=Number.isFinite(a.prevY)?a.prevY:a.y;
  const bx0=Number.isFinite(b.prevX)?b.prevX:b.x,by0=Number.isFinite(b.prevY)?b.prevY:b.y;
- const r0x=bx0-ax0,r0y=by0-ay0,drx=(b.x-bx0)-(a.x-ax0),dry=(b.y-by0)-(a.y-ay0);
- const t=clamp(-(r0x*drx+r0y*dry)/(drx*drx+dry*dry||1),0,1);
- // Tester le point d'approche maximal ainsi que les positions actuelles.
- let best=null;
- for(const f of [0,t,1]){
-  const ax=ax0+(a.x-ax0)*f,ay=ay0+(a.y-ay0)*f;
-  const bx=bx0+(b.x-bx0)*f,by=by0+(b.y-by0)*f;
-  const dx=bx-ax,dy=by-ay,d2=dx*dx+dy*dy;
-  if(d2>41*41)continue;
-  const tipAx=ax+Math.cos(a.angle)*22,tipAy=ay+Math.sin(a.angle)*22;
-  const tipBx=bx+Math.cos(b.angle)*22,tipBy=by+Math.sin(b.angle)*22;
-  const aTip=Math.hypot(tipAx-bx,tipAy-by)<21;
-  const bTip=Math.hypot(tipBx-ax,tipBy-ay)<21;
-  if(!aTip&&!bTip)continue;
-  if(!best||d2<best.d2)best={aTip,bTip,d2};
+ const adx=a.x-ax0,ady=a.y-ay0,bdx=b.x-bx0,bdy=b.y-by0;
+ const rx=ax0-bx0,ry=ay0-by0,dx=adx-bdx,dy=ady-bdy;
+ const denom=dx*dx+dy*dy,tNear=denom?clamp(-(rx*dx+ry*dy)/denom,0,1):1;
+ // Rayon de préfiltrage englobant toutes les pointes, quelle que soit l'orientation.
+ if(Math.hypot(rx+dx*tNear,ry+dy*tNear)>64)return;
+ // Échantillonnage adaptatif: le déplacement d'une image ne doit pas sauter un vaisseau.
+ const travel=Math.hypot(dx,dy),steps=Math.min(64,Math.max(3,Math.ceil(travel/6)));
+ let hit=null;
+ const candidates=[];for(let i=0;i<=steps;i++)candidates.push(i/steps);
+ candidates.push(tNear);candidates.sort((x,y)=>x-y);
+ for(const t of candidates){
+  const hxA=hullAt(a,ax0+adx*t,ay0+ady*t),hxB=hullAt(b,bx0+bdx*t,by0+bdy*t);
+  const aTip=tipTouches(hxA[0],hxB),bTip=tipTouches(hxB[0],hxA);
+  if(!aTip&&!bTip&&!hullTouch(hxA,hxB))continue;
+  // Conserver le premier contact, pour ne pas perdre une attaque par derrière
+  // lorsqu'une pénétration plus profonde change la classification de l'impact.
+  hit={aTip,bTip,x:(hxA[0].x+hxB[0].x)/2,y:(hxA[0].y+hxB[0].y)/2};break;
  }
- if(!best)return;
- let winner,loser;
- if(best.aTip&&best.bTip){
+ if(!hit)return;
+ let winner=null,loser=null;
+ if(hit.aTip&&hit.bTip){
   const va=Math.hypot(a.vx,a.vy),vb=Math.hypot(b.vx,b.vy);
-  if(Math.abs(va-vb)<18)return;
-  winner=va>vb?a:b;loser=winner===a?b:a;
- }else{winner=best.aTip?a:b;loser=winner===a?b:a}
+  if(Math.abs(va-vb)>Math.max(18,Math.min(va,vb)*.045)){winner=va>vb?a:b;loser=winner===a?b:a}
+ }else if(hit.aTip){winner=a;loser=b}
+ else if(hit.bTip){winner=b;loser=a}
+ if(!loser){
+  // Flanc/flanc ou pointes de vitesse presque égale : vrai contact = rebond.
+  const nx=(b.x-a.x)/(Math.hypot(b.x-a.x,b.y-a.y)||1),ny=(b.y-a.y)/(Math.hypot(b.x-a.x,b.y-a.y)||1);
+  const rvx=b.vx-a.vx,rvy=b.vy-a.vy,closing=rvx*nx+rvy*ny;
+  if(closing<0){a.vx+=nx*closing*.3;a.vy+=ny*closing*.3;b.vx-=nx*closing*.3;b.vy-=ny*closing*.3}
+  a.x-=nx*5;a.y-=ny*5;b.x+=nx*5;b.y+=ny*5;
+  return;
+ }
  loser.invuln=5;loser.alive=false;
  if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id,x:loser.x,y:loser.y,level:loser.level,hue:loser.hue,killer:winner.id});}
  else{const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
