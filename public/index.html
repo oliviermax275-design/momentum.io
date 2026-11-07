@@ -1249,16 +1249,35 @@ function drawPremiumFX(e,stage){
  }
  ctx.restore();
  // Le sillage conserve sa forme et ses étincelles, sans ombrage coûteux sur chaque point.
- if(e.level>=5&&e.trail.length>8){ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=skin.glow;ctx.lineWidth=1.1+stage*.13;ctx.globalAlpha=.10+Math.min(.12,stage*.01);
-  ctx.beginPath();const maxSkinTrail=Math.round(9+Math.max(0,Math.min(100,e.level)-5)*.68);const list=e.trail.slice(-Math.min(e.trail.length,maxSkinTrail));let first=true;
-  for(let i=0;i<list.length;i+=3){const t=list[i];if(first){ctx.moveTo(t.x,t.y);first=false}else ctx.lineTo(t.x,t.y)}ctx.lineTo(e.x,e.y);ctx.stroke();
-  for(let i=0;i<list.length;i+=Math.max(7,14-stage)){const t=list[i],age=i/list.length,px=t.x+Math.sin(ts*5+i)*Math.min(10,stage*2.2),py=t.y+Math.cos(ts*4+i)*Math.min(10,stage*2.2);
-   ctx.globalAlpha=(.12+.3*age)*Math.min(1,lvPower);ctx.fillStyle=(i%2)?skin.light:skin.glow;
-   if(['gold','galaxy','diamond','ice'].includes(skin.id)){
-    ctx.beginPath();const r=1.85+stage*.26;ctx.moveTo(px,py-r);ctx.lineTo(px+r,py);ctx.lineTo(px,py+r);ctx.lineTo(px-r,py);ctx.closePath();ctx.fill();
-   }else{ctx.beginPath();ctx.arc(px,py,1.3+stage*.20,0,TAU);ctx.fill()}
+ if(e.level>=5&&e.trail.length>8){
+  // The skin adds a cosmetic light extension ~20% beyond the level-up bubbles.
+  const plan=levelTrailPlan(e.level,e.trail.length);
+  const maxSkinTrail=Math.ceil((10+plan.tier*6)*1.20);
+  const list=e.trail.slice(-Math.min(e.trail.length,maxSkinTrail));
+  if(list.length>2){
+   ctx.save();ctx.globalCompositeOperation='lighter';
+   ctx.beginPath();ctx.moveTo(list[0].x,list[0].y);
+   for(let i=2;i<list.length;i+=3)ctx.lineTo(list[i].x,list[i].y);
+   ctx.lineTo(e.x,e.y);
+   ctx.strokeStyle=skin.glow;ctx.lineWidth=2.4+stage*.18;
+   ctx.globalAlpha=.17+Math.min(.14,stage*.011);ctx.stroke();
+   ctx.strokeStyle=skin.light;ctx.lineWidth=.95+stage*.09;
+   ctx.globalAlpha=.13+Math.min(.1,stage*.008);ctx.stroke();
+   for(let i=0;i<list.length;i+=Math.max(7,14-stage)){
+    const t=list[i],age=i/list.length;
+    const px=t.x+Math.sin(ts*5+i)*Math.min(10,stage*2.2);
+    const py=t.y+Math.cos(ts*4+i)*Math.min(10,stage*2.2);
+    ctx.globalAlpha=(.14+.30*age)*Math.min(1,lvPower);
+    ctx.fillStyle=(i%2)?skin.light:skin.glow;
+    if(['gold','galaxy','diamond','ice'].includes(skin.id)){
+     ctx.beginPath();const r=1.85+stage*.26;ctx.moveTo(px,py-r);
+     ctx.lineTo(px+r,py);ctx.lineTo(px,py+r);ctx.lineTo(px-r,py);
+     ctx.closePath();ctx.fill();
+    }else{ctx.beginPath();ctx.arc(px,py,1.3+stage*.20,0,TAU);ctx.fill()}
+   }
+   ctx.restore();
   }
-  ctx.restore();}
+ }
 }
 
 // === POWER SIGNATURE: 2D canvas only, no GPU shaders / physics changes ===
@@ -1266,36 +1285,41 @@ function drawPremiumFX(e,stage){
 // POWER EVOLUTION: clear Diep.io-style silhouettes + bright aura + long luminous jet trails.
 // Draw-only features. Never used by the physics/collision system.
 // Original translucent bubble trail: no trail below level 5. Grow it continuously by level.
+// Number of trail bubbles and trail reach change ONLY at the same visual
+// evolution milestones (5, 10, 15, 20, 25, 30, 40 ... 100).
+// Speed does not affect the number of bubbles or their sample indices.
+function levelTrailPlan(level, available){
+ const tier=visualTier(level||1);
+ if(tier<1||available<2)return {tier, samples:0, bubbles:0};
+ const samples=Math.min(available,10+tier*6);
+ const bubbles=Math.min(samples,Math.round(6+tier*1.55));
+ return {tier,samples,bubbles};
+}
 function powerTrail(e,tier,hue,speed,near){
- if((e.level||1)<5||e.trail.length<2)return;
- const level=clamp(e.level||1,5,100),a=e.trail;
- const premium= e===player&&profile&&profile.equipped&&profile.equipped!=='origin';
- // Keep all previous level milestones. Premium skins retain a slightly longer tail.
- const wanted=Math.min(a.length,Math.round(5+(level-5)*.63+(premium?2+level*.09:0)));
- const start=Math.max(0,a.length-wanted),base=4.1+Math.min(7.4,level*.071);
- // Far fewer bubbles at high level; higher real movement speed opens visible gaps.
- // Distances are measured in WORLD units so the effect is not tied to framerate.
- const fast=clamp((speed-245)/620,0,1);
- const spacing=(base*.90+Math.max(0,level-30)*.056)*(1+fast*1.85);
- const bubbleLimit=Math.round(34-Math.max(0,tier-4)*1.05);
- let previous=null,drawn=0;
+ const a=e.trail,plan=levelTrailPlan(e.level,a.length);
+ if(plan.bubbles<2)return;
+ const first=a.length-plan.samples;
+ const base=4.1+Math.min(7.4,clamp(e.level||1,5,100)*.071);
  ctx.save();ctx.globalCompositeOperation='screen';
- // Start from the ship to ensure it always has a recent bubble near its engine.
- for(let k=a.length-1;k>=start&&drawn<bubbleLimit;k--){
-  const t=a[k];
-  if(previous&&hyp(t.x-previous.x,t.y-previous.y)<spacing)continue;
-  const f=clamp((k-start)/Math.max(1,wanted),0,1);
-  previous=t;drawn++;
+ // Fixed number per tier; at high speeds, the same bubbles naturally spread
+ // farther apart in world space without changing their count.
+ for(let j=plan.bubbles-1;j>=0;j--){
+  const fraction=j/Math.max(1,plan.bubbles-1);
+  const k=first+Math.round(fraction*(plan.samples-1));
+  const t=a[k],f=fraction;
   const pulse=1+Math.sin(gameTime*5.5+k*1.17)*.06;
   const r=(base+(tier>=7?1.8:0))*pulse*(.68+f*.58);
   ctx.globalAlpha=(.07+.24*f)*(near?1:.78);
   ctx.fillStyle=`hsl(${hue},100%,70%)`;
   ctx.beginPath();ctx.arc(t.x,t.y,r,0,TAU);ctx.fill();
-  if(tier>=7&&near&&!reducedVisualFX&&drawn%6===0){
-   ctx.globalAlpha=.20+.24*f;ctx.fillStyle='#edffff';ctx.beginPath();ctx.arc(t.x+r*.25,t.y-r*.31,Math.max(1.2,r*.28),0,TAU);ctx.fill();
+  if(tier>=7&&near&&!reducedVisualFX&&j%6===0){
+   ctx.globalAlpha=.20+.24*f;ctx.fillStyle='#edffff';
+   ctx.beginPath();ctx.arc(t.x+r*.25,t.y-r*.31,Math.max(1.2,r*.28),0,TAU);ctx.fill();
   }
-  if(tier>=10&&near&&!reducedVisualFX&&drawn%10===0){
-   ctx.globalAlpha=.55*f;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(t.x-r*.9,t.y);ctx.lineTo(t.x+r*.9,t.y);ctx.moveTo(t.x,t.y-r*.9);ctx.lineTo(t.x,t.y+r*.9);ctx.stroke();
+  if(tier>=10&&near&&!reducedVisualFX&&j%10===0){
+   ctx.globalAlpha=.55*f;ctx.strokeStyle='#fff';ctx.lineWidth=1;
+   ctx.beginPath();ctx.moveTo(t.x-r*.9,t.y);ctx.lineTo(t.x+r*.9,t.y);
+   ctx.moveTo(t.x,t.y-r*.9);ctx.lineTo(t.x,t.y+r*.9);ctx.stroke();
   }
  }
  ctx.restore();
