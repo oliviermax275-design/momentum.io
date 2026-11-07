@@ -31,3 +31,10 @@ Tested with Node syntax checks, an HTTP health check, an unauthorized `/owner-to
 - Trail adjusted again: slightly shorter and bigger bubbles.
 
 - **V9 trail polish:** all bubble trails are slightly shorter (~12%) with smaller bubbles (~10%). Premium skin-specific glow and particle trails have also been shortened, without changing their colours or aura.
+
+
+### Bubble trail adjustment (Nov 2026)
+- Skin trails are slightly longer than in the previous version.
+- Higher levels display fewer translucent bubbles, especially at speed.
+- Bubble spacing now expands naturally as speed increases (based on distance, independent of frame rate).
+- Gameplay, collisions, camera, planets, orb count and private admin controls remain unchanged.
