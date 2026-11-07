@@ -4,6 +4,18 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
 const PORT=Number(process.env.PORT||3000),ROOT=path.join(__dirname,'public'),WORLD=4200,TAU=Math.PI*2;
 const AUTH_URL=String(process.env.SUPABASE_URL||'').replace(/\/$/,''),AUTH_KEY=String(process.env.SUPABASE_ANON_KEY||'');
 const AUTH_ENABLED=!!(AUTH_URL&&AUTH_KEY&&/^https:\/\//.test(AUTH_URL));
+// Admin identity is established from the Supabase user endpoint, NEVER from client messages.
+// Owner address is stored as a digest to avoid printing the mailbox in a public repository.
+const ADMIN_EMAIL_DIGEST='51e2d6b35035181d80d239abc9344470e61dc4d2ca47a73b7652c5dca829da4f';
+function isAdminUser(user){
+ if(!user||typeof user.email!=='string')return false;
+ const digest=crypto.createHash('sha256').update(user.email.trim().toLowerCase()).digest('hex');
+ if(digest!==ADMIN_EMAIL_DIGEST)return false;
+ const providers=Array.isArray(user.app_metadata?.providers)?user.app_metadata.providers:[];
+ const linked=Array.isArray(user.identities)?user.identities:[];
+ return user.app_metadata?.provider==='google'||providers.includes('google')||linked.some(id=>id.provider==='google');
+}
+
 async function verifyToken(token){
  if(!AUTH_ENABLED||typeof token!=='string'||token.length<20||token.length>6000)return null;
  try{
@@ -44,7 +56,7 @@ function createBot(){
 }
 function fillSlots(){const want=Math.max(0,20-ships.size);while(botShips.size>want)botShips.delete(botShips.keys().next().value);while(botShips.size<want){const b=createBot();botShips.set(b.id,b)}}
 function pack(p){return {id:p.id,bot:!!p.bot,name:p.name,x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,vx:Math.round(p.vx),vy:Math.round(p.vy),angle:p.angle,hue:p.hue,level:p.level,score:p.score,energy:p.energy,boosting:p.boosting,invuln:p.invuln}}
-function depart(c){if(!c.joined)return;c.joined=false;ships.delete(c.id);fillSlots()}
+function depart(c){if(!c.joined)return;c.joined=false;c.isAdmin=false;c.adminSpeed=1;ships.delete(c.id);fillSlots()}
 async function receive(c,m){if(!m||typeof m!=='object')return;
  if(m.type==='leave'){depart(c);return}
  if(m.type==='join'){
@@ -57,12 +69,43 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   if(ships.size>=20){send(c,{type:'error',message:'Arena full (20/20)'});return}
   // One active connection per authenticated user (prevents duplicate simultaneous slots).
   for(const other of peers)if(other!==c&&other.joined&&other.userId===user.id){depart(other);send(other,{type:'error',message:'Account signed in on another device'});}
-  c.userId=user.id;
+  c.userId=user.id;c.isAdmin=isAdminUser(user);c.adminSpeed=1;
   const pos=spawn();c.joined=true;c.id=c.id||'p-'+(++nextId);
   const p={id:c.id,bot:false,name:safeName(m.name),prevX:pos.x,prevY:pos.y,prevAngle:0,x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true,history:[]};
-  ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'MAIN ARENA',spawn:pos,planets});return;
+  ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'MAIN ARENA',spawn:pos,planets,isAdmin:c.isAdmin});return;
  }
  if(!c.joined)return;
+ if(m.type==='admin'){
+  // Commands are rejected unless this socket was authenticated as the approved Google account.
+  if(!c.isAdmin){send(c,{type:'admin-denied',message:'Admin access denied.'});return}
+  const p=ships.get(c.id);if(!p||!p.alive)return;
+  const action=String(m.action||'');const value=Number(m.value);
+  const result={type:'admin-result',action};
+  if(action==='level'){
+   if(!Number.isInteger(value)||value<1||value>500)return;
+   p.level=value;result.level=value;
+  }else if(action==='add-level'){
+   p.level=Math.min(500,p.level+1);result.level=p.level;
+  }else if(action==='speed'){
+   if(![1,3,10].includes(value))return;
+   c.adminSpeed=value;result.speed=value;
+  }else if(action==='combo'){
+   if(![2,5,10].includes(value))return;
+   result.combo=value;
+  }else if(action==='shield'){
+   p.invuln=Math.max(p.invuln,60);result.shield=60;
+  }else if(action==='chest'){
+   // Client-side test reward only. This is NOT a secure currency transaction.
+   result.chest=true;
+  }else if(action==='top1'){
+   // UI demonstration, no tokens are credited.
+   result.top1=true;
+  }else if(action==='reset'){
+   p.level=1;p.score=0;p.invuln=Math.min(p.invuln,3);c.adminSpeed=1;
+   Object.assign(result,{level:1,speed:1,reset:true});
+  }else return;
+  send(c,result);return;
+ }
 
  if(m.type==='ping'){
   if(Number.isFinite(Number(m.t)))send(c,{type:'pong',t:Number(m.t)});
@@ -93,7 +136,7 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   const nums=['x','y','vx','vy','angle','level','score','energy'];if(!nums.every(k=>Number.isFinite(Number(m[k]))))return;
   let x=clamp(Number(m.x),-WORLD,WORLD),y=clamp(Number(m.y),-WORLD,WORLD),vx=Number(m.vx),vy=Number(m.vy);
   const speed=Math.hypot(vx,vy),level=clamp(Math.floor(Number(m.level)),1,5000);
-  const top=(310+Math.min(220,((Math.min(20,level)-1)*17)+(level>20?62*(1-Math.exp(-(level-20)/20)):0)))*1.44*1.25;
+  const top=(310+Math.min(220,((Math.min(20,level)-1)*17)+(level>20?62*(1-Math.exp(-(level-20)/20)):0)))*1.44*1.25*(c.isAdmin?c.adminSpeed||1:1);
   if(speed>top*1.25){vx=vx/speed*top;vy=vy/speed*top}
   const age=Math.max(.015,Math.min(.25,(Date.now()-p.last)/1000));
   // Basic plausibility check; not a substitute for true authoritative physics.
@@ -374,10 +417,10 @@ app.on('upgrade',(req,socket)=>{if(req.url!=='/live'||req.headers.upgrade?.toLow
  const origin=req.headers.origin;
  if(origin){try{const originHost=new URL(origin).host;if(originHost!==req.headers.host){socket.destroy();return}}catch{socket.destroy();return}}
  const accept=crypto.createHash('sha1').update(req.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
- const c={socket,buffer:Buffer.alloc(0),joined:false,id:null,userId:null,authPending:false};peers.add(c);socket.on('data',b=>consume(c,b));socket.on('error',()=>{});socket.on('close',()=>{depart(c);peers.delete(c)});
+ const c={socket,buffer:Buffer.alloc(0),joined:false,id:null,userId:null,isAdmin:false,adminSpeed:1,authPending:false};peers.add(c);socket.on('data',b=>consume(c,b));socket.on('error',()=>{});socket.on('close',()=>{depart(c);peers.delete(c)});
 });
 if(process.env.MOMENTUM_ENGINE_TEST==='1'){
- module.exports={ships,botShips,planets,fillSlots,spawn,step,collide,resolveImpact,validatedClientContact,recordHistory,hullAt,hullsOverlap,createBot};
+ module.exports={ships,botShips,planets,fillSlots,spawn,step,collide,resolveImpact,validatedClientContact,recordHistory,hullAt,hullsOverlap,createBot,isAdminUser,verifyToken,receive,WSframe};
 }else{
  fillSlots();let prev=Date.now(),broadcastElapsed=0,planetSyncElapsed=0;setInterval(()=>{let now=Date.now(),dt=clamp((now-prev)/1000,0,.07);prev=now;step(dt);broadcastElapsed+=dt;planetSyncElapsed+=dt;if(broadcastElapsed>=.05){broadcastElapsed=0;const state={type:'state',at:Date.now(),humans:ships.size,bots:botShips.size,ships:[...ships.values(),...botShips.values()].filter(x=>x.alive).map(pack)};if(planetSyncElapsed>=.5){state.planets=planets;planetSyncElapsed=0;}broadcast(state)}},1000/30);
  app.listen(PORT,'0.0.0.0',()=>console.log('MOMENTUM.IO beta shared arena listening on '+PORT));

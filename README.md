@@ -34,3 +34,25 @@
 - Node syntax check, client JS syntax check, and browser smoke tests passed. Full 3,000-orb game loaded with no JS errors.
 - A synthetic headless Chromium stress test with 19 nearby high-power opponents ranged roughly 50–60 FPS across repeated runs, depending on test conditions. **Real Render latency, live multiplayer effects, mobile devices and 60 FPS on your own computer are not guaranteed by these tests.**
 - **Token balances, ranking rewards, skins and purchases still use local prototype storage. Real-money payment must remain disabled** until a secure, server-authoritative economy is implemented and verified.
+
+## Owner-only admin panel (Escape)
+
+The owner can open **Escape → Admin tools** while playing. Regular players see only **Continue / Leave Match**.
+
+The Node server checks the currently connected Supabase identity obtained from `/auth/v1/user`. Access is granted only when the verified account email matches the configured owner and includes a Google identity. The client cannot authorize itself by changing its nickname, local storage, or visible UI. Every admin action is also refused by the server unless it comes from an authorized connected owner session.
+
+**Test controls:** set level 20 / 50 / 100 or any level 1–500, +1 level, speed ×1 / ×3 / ×10, combos ×2 / ×5 / ×10, a 60-second shield, one locally stored test chest, Top 1 reward preview (no tokens), and reset to normal test settings. These are for game testing, not a permanent multiplayer progression system.
+
+The beta game still reports player progression from the client; fully cheat-proof competitive rankings and a real-money token economy require server-authoritative progression and a secure database. **Do not enable real payments using this beta.**
+
+### Update on GitHub
+
+Upload these 5 files, preserving `public/index.html`:
+
+- `server.js`
+- `public/index.html`
+- `package.json`
+- `render.yaml`
+- `README.md`
+
+Keep existing `SUPABASE_URL` and `SUPABASE_ANON_KEY` on Render. No new Google Cloud credential is required. After Render is `Live`, sign in using the allowed Google account, start a match, and press `Esc`. The admin panel appears only once the server confirms the join.
