@@ -1269,18 +1269,18 @@ function drawPremiumFX(e,stage){
 function powerTrail(e,tier,hue,speed,near){
  if((e.level||1)<5||e.trail.length<2)return;
  const level=clamp(e.level||1,5,100),a=e.trail;
- const wanted=Math.min(a.length,Math.round(8+(level-5)*.90));
- const stride=near?1:2,base=3.5+Math.min(6.5,level*.065);
+ const wanted=Math.min(a.length,Math.round(6+(level-5)*.72));
+ const stride=near?1:2,base=4.6+Math.min(8.2,level*.078);
  ctx.save();ctx.globalCompositeOperation='screen';
  for(let k=Math.max(0,a.length-wanted),j=0;k<a.length;k+=stride,j++){
   const t=a[k],fade=(k-(a.length-wanted))/Math.max(1,wanted),f=clamp(fade,0,1);
   const pulse=1+Math.sin(gameTime*5.5+k*1.17)*.06;
-  const r=(base+(tier>=7?1.4:0))*pulse*(.56+f*.53);
-  ctx.globalAlpha=(.06+.22*f)*(near?1:.75);
+  const r=(base+(tier>=7?1.8:0))*pulse*(.68+f*.58);
+  ctx.globalAlpha=(.07+.24*f)*(near?1:.78);
   ctx.fillStyle=`hsl(${hue},100%,70%)`;
   ctx.beginPath();ctx.arc(t.x,t.y,r,0,TAU);ctx.fill();
   if(tier>=7&&near&&!reducedVisualFX&&k%6===0){
-   ctx.globalAlpha=.17+.22*f;ctx.fillStyle='#edffff';ctx.beginPath();ctx.arc(t.x+r*.25,t.y-r*.31,Math.max(1,r*.27),0,TAU);ctx.fill();
+   ctx.globalAlpha=.20+.24*f;ctx.fillStyle='#edffff';ctx.beginPath();ctx.arc(t.x+r*.25,t.y-r*.31,Math.max(1.2,r*.28),0,TAU);ctx.fill();
   }
   if(tier>=10&&near&&!reducedVisualFX&&k%10===0){
    ctx.globalAlpha=.55*f;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(t.x-r*.9,t.y);ctx.lineTo(t.x+r*.9,t.y);ctx.moveTo(t.x,t.y-r*.9);ctx.lineTo(t.x,t.y+r*.9);ctx.stroke();

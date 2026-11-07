@@ -27,3 +27,5 @@ Tested with Node syntax checks, an HTTP health check, an unauthorized `/owner-to
 ## Extra tweaks
 - Camera follow: tighter follow with a subtle forward lead so the screen stays better attached to the player.
 - Trail: restored the previous translucent bubble trail style.
+
+- Trail adjusted again: slightly shorter and bigger bubbles.
