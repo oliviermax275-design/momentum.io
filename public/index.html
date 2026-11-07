@@ -819,6 +819,33 @@ const TAU=Math.PI*2;const WALL_CRASH_KMH=90;let lastWallImpactKmh=0;let WORLD=27
  kind=kind||(power>=3?'super':(Math.random()<.32?'boost':'xp'));
  return{x,y,power,kind,hue:kind==='boost'?42:kind==='super'?279:190,r:kind==='super'?8.7:kind==='boost'?5.5:4.3,twinkle:rand(0,TAU)};
 }
+// Low-cost, reusable Canvas sprites for the 3 types of orbs.
+// Keeps the original colours, glowing edges, and per-orb shimmer without repeated shadowBlur.
+function makeOrbSprite(kind){
+ const r=kind==='super'?8.7:kind==='boost'?5.5:4.3;
+ const hue=kind==='boost'?42:kind==='super'?279:190;
+ const padding=kind==='super'?23:18,side=Math.ceil((r+padding)*2);
+ const c=document.createElement('canvas');c.width=c.height=side;
+ const g=c.getContext('2d'),m=side/2;
+ const blur=g.createRadialGradient(m,m,Math.max(.1,r*.3),m,m,r+padding);
+ blur.addColorStop(0,`hsla(${hue},100%,80%,.50)`);
+ blur.addColorStop(.18,`hsla(${hue},100%,69%,.38)`);
+ blur.addColorStop(.55,`hsla(${hue},100%,63%,.15)`);
+ blur.addColorStop(1,`hsla(${hue},100%,65%,0)`);
+ g.fillStyle=blur;g.beginPath();g.arc(m,m,r+padding,0,Math.PI*2);g.fill();
+ const core=g.createRadialGradient(m-r*.3,m-r*.36,.15,m,m,r);
+ core.addColorStop(0,'rgba(255,255,255,.97)');
+ core.addColorStop(.4,`hsla(${hue},100%,88%,.97)`);
+ core.addColorStop(1,`hsla(${hue},100%,${kind==='boost'?69:78}%,.82)`);
+ g.fillStyle=core;g.beginPath();g.arc(m,m,r,0,Math.PI*2);g.fill();
+ if(kind==='boost'){
+  g.strokeStyle='#fff3c5';g.lineWidth=1.1;g.beginPath();g.moveTo(m-2.1,m);g.lineTo(m+2.1,m);g.moveTo(m,m-2.1);g.lineTo(m,m+2.1);g.stroke();
+ }else if(kind==='super'){
+  g.strokeStyle='#f3dbff';g.lineWidth=1.5;g.beginPath();g.arc(m,m,r+2.7,0,Math.PI*2);g.stroke();
+ }
+ return c;
+}
+const orbSprites={xp:makeOrbSprite('xp'),boost:makeOrbSprite('boost'),super:makeOrbSprite('super')};
 // Toute la progression repose sur ces plafonds; le bonus combo s'applique aux deux.
 function comboBonus(e){return e.streak>=2&&e.streakTime>0?Math.min(e.streak,10)*.02:0}
 // Courbe saturante : progrès perceptible avant le niveau 20, puis de plus en plus modéré.
@@ -1243,7 +1270,7 @@ function powerTrail(e,tier,hue,speed,near){
  if((e.level||1)<5||e.trail.length<2)return;
  const level=clamp(e.level||1,5,100),a=e.trail;
  const wanted=Math.min(a.length,Math.round(12+(level-5)*1.08));
- const start=Math.max(0,a.length-wanted),base=5.0+Math.min(11.5,level*.082);
+ const start=Math.max(0,a.length-wanted),base=6.6+Math.min(14.3,level*.103);
  const pts=[];
  for(let k=start;k<a.length;k++)pts.push(a[k]);
  if(pts.length<2)return;
@@ -1251,9 +1278,9 @@ function powerTrail(e,tier,hue,speed,near){
  ctx.globalCompositeOperation='screen';
  ctx.lineCap='round';ctx.lineJoin='round';
  if(near&&!reducedVisualFX){ctx.shadowColor=`hsl(${hue},100%,72%)`;ctx.shadowBlur=10+tier*2.4;}
- const outerW=base*(1.45+(tier>=8?.10:0));
- const midW=base*(.95+(tier>=10?.08:0));
- const innerW=base*(.48+(tier>=10?.05:0));
+ const outerW=base*(1.46+(tier>=8?.10:0));
+ const midW=base*(1.02+(tier>=10?.08:0));
+ const innerW=base*(.51+(tier>=10?.05:0));
  ctx.globalAlpha=near?.23:.17;
  ctx.strokeStyle=`hsla(${hue},100%,56%,.95)`;
  ctx.lineWidth=outerW;
@@ -1405,18 +1432,15 @@ function draw(){ctx.clearRect(0,0,W,H);let ox=(Math.random()-.5)*shake,oy=(Math.
  for(const o of orbs){
  let ox=o.x,oy=o.y;const age=gameTime-(o.scatterAt??-999);
  if(age>=0&&age<.38){const t=Math.min(1,age/.38);const ease=1-(1-t)*(1-t)*(1-t);ox=o.scatterFromX+(o.x-o.scatterFromX)*ease;oy=o.scatterFromY+(o.y-o.scatterFromY)*ease;}
- if(ox<minX||ox>maxX||oy<minY||oy>maxY)continue;
- const glow=.72+.28*Math.sin(gameTime*4+o.twinkle),r=o.r*(.94+.07*Math.sin(gameTime*4+o.twinkle));
- ctx.shadowBlur=reducedVisualFX?0:(o.kind==='super'?24:13);
- ctx.shadowColor=`hsl(${o.hue},100%,65%)`;
- ctx.fillStyle=`hsla(${o.hue},100%,${o.kind==='boost'?69:78}%,${glow})`;
- ctx.beginPath();ctx.arc(ox,oy,r,0,TAU);ctx.fill();
- if(o.kind==='boost'){
-  ctx.strokeStyle='#fff3c5';ctx.lineWidth=1.1;ctx.beginPath();ctx.moveTo(ox-2.1,o.y);ctx.lineTo(ox+2.1,o.y);ctx.moveTo(o.x,oy-2.1);ctx.lineTo(o.x,oy+2.1);ctx.stroke();
- }else if(o.kind==='super'){
-  ctx.strokeStyle='#f3dbff';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(ox,oy,r+2.7,0,TAU);ctx.stroke();
+ if(ox<minX-32||ox>maxX+32||oy<minY-32||oy>maxY+32)continue;
+ // Reuse one pre-rendered glow per orb type instead of computing a canvas shadow on every orb.
+ const sprite=orbSprites[o.kind]||orbSprites.xp;
+ ctx.globalAlpha=.72+.28*Math.sin(gameTime*4+o.twinkle);
+ const scale=.94+.07*Math.sin(gameTime*4+o.twinkle),size=sprite.width*scale;
+ ctx.drawImage(sprite,ox-size*.5,oy-size*.5,size,size);
  }
-}
+ ctx.globalAlpha=1;
+
 ctx.shadowBlur=0;for(const s of sparks){ctx.globalAlpha=clamp(s.life*1.7,0,1);ctx.fillStyle=`hsl(${s.hue},100%,75%)`;ctx.fillRect(s.x,s.y,s.r,s.r)}ctx.globalAlpha=1;for(const f of floats){ctx.globalAlpha=clamp(f.life*1.4,0,1);ctx.font='900 13px system-ui';ctx.textAlign='center';ctx.fillStyle=f.color;ctx.shadowColor=f.color;ctx.shadowBlur=7;ctx.fillText(f.text,f.x,f.y-17)}ctx.shadowBlur=0;ctx.globalAlpha=1;for(const r of rings){
  if(r.x+r.r<minX||r.x-r.r>maxX||r.y+r.r<minY||r.y-r.r>maxY)continue;
  const fade=clamp(r.life/(r.maxLife||.5),0,1);
