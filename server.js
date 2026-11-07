@@ -30,6 +30,7 @@ const OWNER_PANEL_HTML=`<div id="admin-controls">
  <div class="admin-group"><strong>LEVEL</strong><button data-admin-action="level" data-admin-value="20">20</button><button data-admin-action="level" data-admin-value="50">50</button><button data-admin-action="level" data-admin-value="100">100</button><label class="admin-level-entry">Custom <input id="admin-custom-level" type="number" inputmode="numeric" min="1" max="500" step="1" value="25"></label><button id="admin-set-level">SET</button></div>
  <div class="admin-group"><strong>MAX SPEED</strong><button data-admin-action="speed" data-admin-value="1">×1</button><button data-admin-action="speed" data-admin-value="3">×3</button><button data-admin-action="speed" data-admin-value="10">×10</button></div>
  <div class="admin-group"><strong>COMBO</strong><button data-admin-action="combo" data-admin-value="2">×2</button><button data-admin-action="combo" data-admin-value="5">×5</button><button data-admin-action="combo" data-admin-value="10">×10</button></div>
+ <div class="admin-group"><strong>OTHER PILOTS · SERVER CONTROLLED</strong><label for="admin-target-id">Pilot</label><select id="admin-target-id" style="width:100%;min-width:150px;background:#071928;border:1px solid #5f9aaa;border-radius:9px;padding:10px;color:#e6ffff;font-size:12px"></select><label class="admin-level-entry">Level <input id="admin-target-level" type="number" inputmode="numeric" min="1" max="500" value="50" style="background:#071928;color:#fff;border:1px solid #5f9aaa;border-radius:7px;width:70px;padding:8px"></label><button id="admin-target-set-level">SET LEVEL</button><button data-admin-action="target-speed" data-admin-value="1">SPEED ×1</button><button data-admin-action="target-speed" data-admin-value="1.5">×1.5</button><button data-admin-action="target-speed" data-admin-value="2">×2</button><button data-admin-action="target-speed" data-admin-value="3">×3</button><button data-admin-action="target-shield">SHIELD 60S</button><button data-admin-action="target-reset">RESET PILOT</button></div>
  <div class="admin-group"><strong>TEST COMMANDS</strong><button data-admin-action="add-level">+1 LEVEL</button><button data-admin-action="shield">SHIELD 60S</button><button data-admin-action="chest">+1 TEST CHEST</button><button data-admin-action="top1">PREVIEW TOP 1</button><button data-admin-action="reset">RESET</button></div>
  <div class="admin-status" id="admin-status" role="status" aria-live="polite">Verified owner · changes are for testing only.</div>
  </div>`;
@@ -89,6 +90,35 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   const p=ships.get(c.id);if(!p||!p.alive)return;
   const action=String(m.action||'');const value=Number(m.value);
   const result={type:'admin-result',action};
+  // Server-side target lookup and authorization. Never trust a name or level supplied by client.
+  if(['target-level','target-speed','target-shield','target-reset'].includes(action)){
+   const targetId=typeof m.targetId==='string'?m.targetId:'';
+   if(!targetId||targetId===c.id){send(c,{type:'error',message:'Select another active pilot.'});return;}
+   const target=ships.get(targetId)||botShips.get(targetId);
+   if(!target||!target.alive){send(c,{type:'error',message:'Pilot no longer active.'});return;}
+   if(action==='target-level'){
+    if(!Number.isInteger(value)||value<1||value>500)return;
+    target.level=value;target.adminLevelOverride=value;target.adminLevelUntil=Date.now()+1800000;
+    if(!target.bot){const tc=[...peers].find(peer=>peer.joined&&peer.id===target.id);if(tc)send(tc,{type:'admin-override',level:value});}
+    result.level=value;
+   }else if(action==='target-speed'){
+    if(![1,1.5,2,3].includes(value))return;
+    target.adminSpeed=value;
+    if(!target.bot){const tc=[...peers].find(peer=>peer.joined&&peer.id===target.id);if(tc){tc.adminSpeed=value;send(tc,{type:'admin-override',speed:value});}}
+    result.speed=value;
+   }else if(action==='target-shield'){
+    target.invuln=Math.max(target.invuln,60);
+    if(!target.bot){const tc=[...peers].find(peer=>peer.joined&&peer.id===target.id);if(tc)send(tc,{type:'admin-override',shield:60});}
+    result.shield=60;
+   }else if(action==='target-reset'){
+    target.level=1;target.score=0;target.adminLevelOverride=1;target.adminLevelUntil=Date.now()+1800000;target.adminSpeed=1;
+    if(!target.bot){const tc=[...peers].find(peer=>peer.joined&&peer.id===target.id);if(tc){tc.adminSpeed=1;send(tc,{type:'admin-override',reset:true});}}
+    result.reset=true;
+   }
+   result.label=target.name+' · '+(action==='target-level'?'LEVEL '+result.level:action==='target-speed'?'SPEED ×'+result.speed:action==='target-shield'?'SHIELD 60S':'RESET');
+   send(c,result);return;
+  }
+
   if(action==='level'){
    if(!Number.isInteger(value)||value<1||value>500)return;
    p.level=value;result.level=value;
@@ -144,12 +174,12 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   const nums=['x','y','vx','vy','angle','level','score','energy'];if(!nums.every(k=>Number.isFinite(Number(m[k]))))return;
   let x=clamp(Number(m.x),-WORLD,WORLD),y=clamp(Number(m.y),-WORLD,WORLD),vx=Number(m.vx),vy=Number(m.vy);
   const speed=Math.hypot(vx,vy),level=clamp(Math.floor(Number(m.level)),1,5000);
-  const top=(310+Math.min(220,((Math.min(20,level)-1)*17)+(level>20?62*(1-Math.exp(-(level-20)/20)):0)))*1.44*1.25*(c.isAdmin?c.adminSpeed||1:1);
+  const top=(310+Math.min(220,((Math.min(20,level)-1)*17)+(level>20?62*(1-Math.exp(-(level-20)/20)):0)))*1.44*1.25*(Number.isFinite(c.adminSpeed)?c.adminSpeed:1);
   if(speed>top*1.25){vx=vx/speed*top;vy=vy/speed*top}
   const age=Math.max(.015,Math.min(.25,(Date.now()-p.last)/1000));
   // Basic plausibility check; not a substitute for true authoritative physics.
   if(Math.hypot(x-p.x,y-p.y)>Math.max(140,top*age*3.3)&&Date.now()-p.last<1200)return;
-  p.prevX=p.x;p.prevY=p.y;p.prevAngle=p.angle;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();recordHistory(p);
+  p.prevX=p.x;p.prevY=p.y;p.prevAngle=p.angle;p.x=x;p.y=y;p.vx=vx;p.vy=vy;p.angle=Number(m.angle);p.level=p.adminLevelUntil>Date.now()?p.adminLevelOverride:level;p.score=clamp(Number(m.score),0,10000000);p.energy=clamp(Number(m.energy),0,100);p.boosting=!!m.boosting;p.last=Date.now();recordHistory(p);
  }
 }
 function hullAt(s,f){
@@ -386,7 +416,7 @@ function step(dt){serverTime+=dt;
   const beforeSpeed=Math.hypot(b.vx,b.vy);
   b.vx=b.vx*Math.pow(.991,dt*60)+Math.cos(b.angle)*acc*dt;
   b.vy=b.vy*Math.pow(.991,dt*60)+Math.sin(b.angle)*acc*dt;
-  const cap=b.boosting?(560+Math.min(b.level,14)*7+75*(b.skill-.60)):(365+Math.min(b.level,10)*7);
+  const cap=(b.boosting?(560+Math.min(b.level,14)*7+75*(b.skill-.60)):(365+Math.min(b.level,10)*7))*(b.adminSpeed||1);
   // Emergency dampening only at the very edge when still moving outward.
   const edge=WORLD-16;
   if(Math.abs(b.x)>edge-85&&b.vx*Math.sign(b.x)>0)b.vx*=Math.pow(.92,dt*60);
