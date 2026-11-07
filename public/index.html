@@ -764,17 +764,19 @@ function netEntity(s,serverAt){let e=remoteById.get(s.id);if(!e){e=entity(s.x,s.
  if(e.netX===undefined){e.x=s.x;e.y=s.y;e.angle=s.angle;}
  e.netX=s.x;e.netY=s.y;e.netAngle=s.angle;e.netUpdated=performance.now();e.netServerAt=Number(serverAt)||Date.now();
  if(hyp(e.netX-e.x,e.netY-e.y)>650){e.x=e.netX;e.y=e.netY;e.angle=e.netAngle;e.trail.length=0;}
+ if(visualTier(e.level||1)!==visualTier(s.level||1))e.trail.length=0;
  e.isBot=!!s.bot;e.vx=s.vx;e.vy=s.vy;e.hue=s.hue;e.level=s.level||1;e.score=s.score||0;e.alive=true;e.energy=s.energy??100;e.boosting=!!s.boosting;e.invuln=s.invuln||0;e.r=s.bot?14:16;
  return e;
 }
 function netReceive(m){
- if(m.type==='admin-override'){if(!player)return;if(Number.isInteger(m.level)){player.level=m.level;player.xp=0;player.levelPulse=1;}if([1,1.5,2,3].includes(m.speed))remoteAdminSpeed=m.speed;if(Number.isFinite(m.shield))player.invuln=Math.max(player.invuln,m.shield);if(m.reset){player.level=1;player.xp=0;remoteAdminSpeed=1;}updateHud();toast('GAME MODERATOR · STATS UPDATED');return;}
+ if(m.type==='admin-override'){if(!player)return;if(Number.isInteger(m.level)){if(visualTier(player.level)!==visualTier(m.level))player.trail.length=0;player.level=m.level;player.xp=0;player.levelPulse=1;}if([1,1.5,2,3].includes(m.speed))remoteAdminSpeed=m.speed;if(Number.isFinite(m.shield))player.invuln=Math.max(player.invuln,m.shield);if(m.reset){player.level=1;player.xp=0;player.trail.length=0;remoteAdminSpeed=1;}updateHud();toast('GAME MODERATOR · STATS UPDATED');return;}
  if(m.type==='admin-denied'){isAdminClient=false;syncOwnerPanel();siteError('Admin access denied');return;}
  if(m.type==='admin-result'){
   if(!isAdminClient||!player)return;
   const action=m.action;
   if(action.startsWith('target-')){const status=adminSection?.querySelector('#admin-status');if(status)status.textContent='✓ '+(m.label||action)+' · Updated by server';toast('ADMIN · '+(m.label||action));return;}
   if((action==='level'||action==='add-level')&&Number.isInteger(m.level)){
+   if(visualTier(player.level)!==visualTier(m.level))player.trail.length=0;
    player.level=m.level;player.xp=0;player.levelPulse=1;updateHud();
   }
   if(action==='speed'&&[1,3,10].includes(m.speed)){adminSpeedMultiplier=m.speed;updateHud();}
@@ -1045,7 +1047,7 @@ function updateEntity(e,dt){if(!e.alive)return;e.prevX=e.x;e.prevY=e.y;e.prevAng
   if(Math.abs(e.x)>edge-340&&e.vx*Math.sign(e.x)>0)e.vx*=Math.pow(.91,dt*60);
   if(Math.abs(e.y)>edge-340&&e.vy*Math.sign(e.y)>0)e.vy*=Math.pow(.91,dt*60);
  }
- want=e.targetAngle+Math.sin(gameTime*.7+e.x*.01)*.025;boostNow=!wallDanger&&(e.energy>20&&Math.random()<.016||e.boosting&&e.energy>8&&Math.random()<.975);e.boosting=boostNow;e.wallAvoiding=wallDanger}else{let dx=mouse.x-W/2,dy=mouse.y-H/2;want=hyp(dx,dy)<15?e.angle:Math.atan2(dy,dx);boostNow=boost&&e.energy>1;e.boosting=boostNow}if(e===player){if(boostNow&&!e._prevBoost)playSound('boost');e._prevBoost=boostNow}let speed=hyp(e.vx,e.vy);e.speedBeforeDrive=speed;let angleDelta=Math.atan2(Math.sin(want-e.angle),Math.cos(want-e.angle));let turnFactor=clamp(1.85-speed/880,.55,1.6);if(e.bot&&e.wallAvoiding)turnFactor=Math.max(turnFactor,1.55);let turn=clamp(angleDelta,-(2.95*turnFactor)*dt,(2.95*turnFactor)*dt);e.angle+=turn;let turnLoss=Math.abs(turn)*clamp(speed/170,0,1)*.085;let drag=Math.pow(.991,dt*60)*(1-turnLoss);e.vx*=drag;e.vy*=drag;let direction=unit(e.angle);let acceleration=(boostNow?560+285*levelGrowth(e.level):245+190*levelGrowth(e.level));if(boostNow)e.energy=Math.max(0,e.energy-35*dt);else e.energy=Math.min(100,e.energy+13*dt);e.vx+=direction.x*acceleration*dt;e.vy+=direction.y*acceleration*dt;let cap=topCap(e,boostNow);if(e.bot&&e.wallAvoiding)cap=Math.min(cap,180);speed=hyp(e.vx,e.vy);if(speed>cap){const allowed=(!boostNow&&!e.wallAvoiding)?Math.max(cap,e.speedBeforeDrive||cap):cap;if(speed>allowed){e.vx*=allowed/speed;e.vy*=allowed/speed;speed=allowed}}planetGravity(e,dt);e.x+=e.vx*dt;e.y+=e.vy*dt;arenaWallCollision(e);if(!e.alive)return;planetCollisions(e);if(!e.alive)return;if(e===player&&e.boosting&&speed>310&&Math.random()<.28){let v=unit(e.angle),side=rand(-7,7);sparks.push({x:e.x-v.x*16-v.y*side,y:e.y-v.y*16+v.x*side,vx:-v.x*rand(30,95)+rand(-30,30),vy:-v.y*rand(30,95)+rand(-30,30),life:rand(.15,.34),max:1,hue:48,r:rand(1,2.4)})}if(e.level>=5)e.trail.push({x:e.x,y:e.y,angle:e.angle,life:1.2+Math.min(2.2,e.level*.024)});else if(e.trail.length)e.trail.length=0;if(e.trail.length>(e===player?170:130))e.trail.shift();for(let i=e.trail.length-1;i>=0;i--){e.trail[i].life-=dt;if(e.trail[i].life<=0)e.trail.splice(i,1)}for(let i=orbs.length-1;i>=0;i--){let o=orbs[i],dx=e.x-o.x,dy=e.y-o.y;if(dx*dx+dy*dy<(e.r+o.r+6)**2){orbs.splice(i,1);
+ want=e.targetAngle+Math.sin(gameTime*.7+e.x*.01)*.025;boostNow=!wallDanger&&(e.energy>20&&Math.random()<.016||e.boosting&&e.energy>8&&Math.random()<.975);e.boosting=boostNow;e.wallAvoiding=wallDanger}else{let dx=mouse.x-W/2,dy=mouse.y-H/2;want=hyp(dx,dy)<15?e.angle:Math.atan2(dy,dx);boostNow=boost&&e.energy>1;e.boosting=boostNow}if(e===player){if(boostNow&&!e._prevBoost)playSound('boost');e._prevBoost=boostNow}let speed=hyp(e.vx,e.vy);e.speedBeforeDrive=speed;let angleDelta=Math.atan2(Math.sin(want-e.angle),Math.cos(want-e.angle));let turnFactor=clamp(1.85-speed/880,.55,1.6);if(e.bot&&e.wallAvoiding)turnFactor=Math.max(turnFactor,1.55);let turn=clamp(angleDelta,-(2.95*turnFactor)*dt,(2.95*turnFactor)*dt);e.angle+=turn;let turnLoss=Math.abs(turn)*clamp(speed/170,0,1)*.085;let drag=Math.pow(.991,dt*60)*(1-turnLoss);e.vx*=drag;e.vy*=drag;let direction=unit(e.angle);let acceleration=(boostNow?560+285*levelGrowth(e.level):245+190*levelGrowth(e.level));if(boostNow)e.energy=Math.max(0,e.energy-35*dt);else e.energy=Math.min(100,e.energy+13*dt);e.vx+=direction.x*acceleration*dt;e.vy+=direction.y*acceleration*dt;let cap=topCap(e,boostNow);if(e.bot&&e.wallAvoiding)cap=Math.min(cap,180);speed=hyp(e.vx,e.vy);if(speed>cap){const allowed=(!boostNow&&!e.wallAvoiding)?Math.max(cap,e.speedBeforeDrive||cap):cap;if(speed>allowed){e.vx*=allowed/speed;e.vy*=allowed/speed;speed=allowed}}planetGravity(e,dt);e.x+=e.vx*dt;e.y+=e.vy*dt;arenaWallCollision(e);if(!e.alive)return;planetCollisions(e);if(!e.alive)return;if(e===player&&e.boosting&&speed>310&&Math.random()<.28){let v=unit(e.angle),side=rand(-7,7);sparks.push({x:e.x-v.x*16-v.y*side,y:e.y-v.y*16+v.x*side,vx:-v.x*rand(30,95)+rand(-30,30),vy:-v.y*rand(30,95)+rand(-30,30),life:rand(.15,.34),max:1,hue:48,r:rand(1,2.4)})}if(e.level>=5){const tail=e.trail[e.trail.length-1];if(!tail||hyp(e.x-tail.x,e.y-tail.y)>=2)e.trail.push({x:e.x,y:e.y,angle:e.angle,life:1.2+Math.min(2.2,e.level*.024)});}else if(e.trail.length)e.trail.length=0;if(e.trail.length>(e===player?170:130))e.trail.shift();for(let i=e.trail.length-1;i>=0;i--){e.trail[i].life-=dt;if(e.trail[i].life<=0)e.trail.splice(i,1)}for(let i=orbs.length-1;i>=0;i--){let o=orbs[i],dx=e.x-o.x,dy=e.y-o.y;if(dx*dx+dy*dy<(e.r+o.r+6)**2){orbs.splice(i,1);
  let xpGain=o.kind==='super'?54:o.kind==='xp'?17:7;
  let fuelGain=o.kind==='super'?39:o.kind==='boost'?21:5;
  e.score+=o.kind==='super'?45:10;
@@ -1251,8 +1253,8 @@ function drawPremiumFX(e,stage){
  // Le sillage conserve sa forme et ses étincelles, sans ombrage coûteux sur chaque point.
  if(e.level>=5&&e.trail.length>8){
   // The skin adds a cosmetic light extension ~20% beyond the level-up bubbles.
-  const plan=levelTrailPlan(e.level,e.trail.length,hypot(e.vx,e.vy));
-  const maxSkinTrail=Math.ceil((10+plan.tier*6)*1.20);
+  const bubbleTrailLength=Math.round(8+(clamp(e.level||1,5,100)-5)*.90);
+  const maxSkinTrail=Math.ceil(bubbleTrailLength*1.20);
   const list=e.trail.slice(-Math.min(e.trail.length,maxSkinTrail));
   if(list.length>2){
    ctx.save();ctx.globalCompositeOperation='lighter';
@@ -1287,41 +1289,27 @@ function drawPremiumFX(e,stage){
 // Original translucent bubble trail: no trail below level 5. Grow it continuously by level.
 // Number of trail bubbles and trail reach change ONLY at the same visual
 // evolution milestones (5, 10, 15, 20, 25, 30, 40 ... 100).
-// Speed never affects bubble COUNT; it slightly compacts the sampled trail
-// at high speeds (up to 12%), so individual bubbles remain easier to follow.
-function levelTrailPlan(level, available, speed=0){
- const tier=visualTier(level||1);
- if(tier<1||available<2)return {tier, samples:0, bubbles:0};
- const bubbles=Math.round(6+tier*1.55);
- const topSpeedSpacing=clamp((Math.max(0,Number(speed)||0)-260)/900,0,1);
- const samples=Math.min(available,Math.max(bubbles,Math.round((10+tier*6)*(1-topSpeedSpacing*.12))));
- return {tier,samples,bubbles:Math.min(samples,bubbles)};
-}
+// Bubble COUNT depends exclusively on the evolution tier, never speed.
+// Faster movement spreads the very same bubbles over a slightly longer
+// section of the recorded path; deceleration brings them closer together.
 function powerTrail(e,tier,hue,speed,near){
- const a=e.trail,plan=levelTrailPlan(e.level,a.length,speed);
- if(plan.bubbles<2)return;
- const first=a.length-plan.samples;
- const base=4.1+Math.min(7.4,clamp(e.level||1,5,100)*.071);
+ if((e.level||1)<5||e.trail.length<2)return;
+ const level=clamp(e.level||1,5,100),a=e.trail;
+ const wanted=Math.min(a.length,Math.round(8+(level-5)*.90));
+ const stride=near?1:2,base=3.5+Math.min(6.5,level*.065);
  ctx.save();ctx.globalCompositeOperation='screen';
- // The count stays fixed by tier; the sample window compresses gently
- // at high speed to keep the bubbles a little closer together.
- for(let j=plan.bubbles-1;j>=0;j--){
-  const fraction=j/Math.max(1,plan.bubbles-1);
-  const k=first+Math.round(fraction*(plan.samples-1));
-  const t=a[k],f=fraction;
+ for(let k=Math.max(0,a.length-wanted),j=0;k<a.length;k+=stride,j++){
+  const t=a[k],fade=(k-(a.length-wanted))/Math.max(1,wanted),f=clamp(fade,0,1);
   const pulse=1+Math.sin(gameTime*5.5+k*1.17)*.06;
-  const r=(base+(tier>=7?1.8:0))*pulse*(.68+f*.58);
-  ctx.globalAlpha=(.07+.24*f)*(near?1:.78);
+  const r=(base+(tier>=7?1.4:0))*pulse*(.56+f*.53);
+  ctx.globalAlpha=(.06+.22*f)*(near?1:.75);
   ctx.fillStyle=`hsl(${hue},100%,70%)`;
   ctx.beginPath();ctx.arc(t.x,t.y,r,0,TAU);ctx.fill();
-  if(tier>=7&&near&&!reducedVisualFX&&j%6===0){
-   ctx.globalAlpha=.20+.24*f;ctx.fillStyle='#edffff';
-   ctx.beginPath();ctx.arc(t.x+r*.25,t.y-r*.31,Math.max(1.2,r*.28),0,TAU);ctx.fill();
+  if(tier>=7&&near&&!reducedVisualFX&&k%6===0){
+   ctx.globalAlpha=.17+.22*f;ctx.fillStyle='#edffff';ctx.beginPath();ctx.arc(t.x+r*.25,t.y-r*.31,Math.max(1,r*.27),0,TAU);ctx.fill();
   }
-  if(tier>=10&&near&&!reducedVisualFX&&j%10===0){
-   ctx.globalAlpha=.55*f;ctx.strokeStyle='#fff';ctx.lineWidth=1;
-   ctx.beginPath();ctx.moveTo(t.x-r*.9,t.y);ctx.lineTo(t.x+r*.9,t.y);
-   ctx.moveTo(t.x,t.y-r*.9);ctx.lineTo(t.x,t.y+r*.9);ctx.stroke();
+  if(tier>=10&&near&&!reducedVisualFX&&k%10===0){
+   ctx.globalAlpha=.55*f;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(t.x-r*.9,t.y);ctx.lineTo(t.x+r*.9,t.y);ctx.moveTo(t.x,t.y-r*.9);ctx.lineTo(t.x,t.y+r*.9);ctx.stroke();
   }
  }
  ctx.restore();

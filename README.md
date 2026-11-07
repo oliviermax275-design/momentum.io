@@ -31,3 +31,10 @@ This remains a beta with parts of gameplay/economy handled on the client. Real p
 - Speed only changes **spacing**: when accelerating, the same bubbles occupy a slightly longer stretch of the trail (up to +12% sampling span in addition to their natural movement), and when slowing down the spacing contracts again.
 - Skin glow trails still extend ~20% beyond the level-earned bubble trail.
 - No changes to hitboxes, collision physics, camera, or private admin permissions.
+
+
+## Correctif traînée / panneau admin
+- Retour au premier rendu de bulles translucides (dès le niveau 5).
+- Correction de l'erreur JavaScript qui interrompait l'animation avec un skin équipé et un niveau 5 ou supérieur.
+- Historique visuel réinitialisé au changement de palier via le panneau admin, sans toucher aux niveaux, contrôles, collisions ou à la physique.
+- Conservation de l'extension lumineuse des skins d'environ 20 %, de la caméra rapprochée et de l'optimisation des orbes.
