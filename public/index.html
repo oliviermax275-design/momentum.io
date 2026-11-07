@@ -1301,7 +1301,7 @@ function powerTrail(e,tier,hue,speed,near){
  for(let k=Math.max(0,a.length-wanted),j=0;k<a.length;k+=stride,j++){
   const t=a[k],fade=(k-(a.length-wanted))/Math.max(1,wanted),f=clamp(fade,0,1);
   const pulse=1+Math.sin(gameTime*5.5+k*1.17)*.06;
-  const r=(base+(tier>=7?1.4:0))*pulse*(.56+f*.53);
+  const r=(base+(tier>=7?1.4:0))*pulse*(.56+f*.53)*1.22;
   ctx.globalAlpha=(.06+.22*f)*(near?1:.75);
   ctx.fillStyle=`hsl(${hue},100%,70%)`;
   ctx.beginPath();ctx.arc(t.x,t.y,r,0,TAU);ctx.fill();
