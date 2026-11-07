@@ -22,3 +22,8 @@ Tested with Node syntax checks, an HTTP health check, an unauthorized `/owner-to
 - Smooth continuous light trail is approximately 30% thicker throughout progression, no bubble-separated appearance.
 - Three pre-rendered orb sprites reduce per-frame Canvas blur work while preserving glow and automatic replenishment to 3,000 in the large arena.
 - Ship visuals, network collision physics, admin authorization, and core controls unchanged.
+
+
+## Extra tweaks
+- Camera follow: tighter follow with a subtle forward lead so the screen stays better attached to the player.
+- Trail: restored the previous translucent bubble trail style.
