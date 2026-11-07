@@ -1251,7 +1251,7 @@ function drawPremiumFX(e,stage){
  // Le sillage conserve sa forme et ses étincelles, sans ombrage coûteux sur chaque point.
  if(e.level>=5&&e.trail.length>8){
   // The skin adds a cosmetic light extension ~20% beyond the level-up bubbles.
-  const plan=levelTrailPlan(e.level,e.trail.length);
+  const plan=levelTrailPlan(e.level,e.trail.length,hypot(e.vx,e.vy));
   const maxSkinTrail=Math.ceil((10+plan.tier*6)*1.20);
   const list=e.trail.slice(-Math.min(e.trail.length,maxSkinTrail));
   if(list.length>2){
@@ -1287,22 +1287,24 @@ function drawPremiumFX(e,stage){
 // Original translucent bubble trail: no trail below level 5. Grow it continuously by level.
 // Number of trail bubbles and trail reach change ONLY at the same visual
 // evolution milestones (5, 10, 15, 20, 25, 30, 40 ... 100).
-// Speed does not affect the number of bubbles or their sample indices.
-function levelTrailPlan(level, available){
+// Speed never affects bubble COUNT; it slightly compacts the sampled trail
+// at high speeds (up to 12%), so individual bubbles remain easier to follow.
+function levelTrailPlan(level, available, speed=0){
  const tier=visualTier(level||1);
  if(tier<1||available<2)return {tier, samples:0, bubbles:0};
- const samples=Math.min(available,10+tier*6);
- const bubbles=Math.min(samples,Math.round(6+tier*1.55));
- return {tier,samples,bubbles};
+ const bubbles=Math.round(6+tier*1.55);
+ const topSpeedSpacing=clamp((Math.max(0,Number(speed)||0)-260)/900,0,1);
+ const samples=Math.min(available,Math.max(bubbles,Math.round((10+tier*6)*(1-topSpeedSpacing*.12))));
+ return {tier,samples,bubbles:Math.min(samples,bubbles)};
 }
 function powerTrail(e,tier,hue,speed,near){
- const a=e.trail,plan=levelTrailPlan(e.level,a.length);
+ const a=e.trail,plan=levelTrailPlan(e.level,a.length,speed);
  if(plan.bubbles<2)return;
  const first=a.length-plan.samples;
  const base=4.1+Math.min(7.4,clamp(e.level||1,5,100)*.071);
  ctx.save();ctx.globalCompositeOperation='screen';
- // Fixed number per tier; at high speeds, the same bubbles naturally spread
- // farther apart in world space without changing their count.
+ // The count stays fixed by tier; the sample window compresses gently
+ // at high speed to keep the bubbles a little closer together.
  for(let j=plan.bubbles-1;j>=0;j--){
   const fraction=j/Math.max(1,plan.bubbles-1);
   const k=first+Math.round(fraction*(plan.samples-1));
