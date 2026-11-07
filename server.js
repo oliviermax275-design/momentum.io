@@ -18,7 +18,7 @@ const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v))
 function WSframe(obj){const b=Buffer.from(JSON.stringify(obj));let h;if(b.length<126)h=Buffer.from([129,b.length]);else if(b.length<65536)h=Buffer.from([129,126,b.length>>8,b.length&255]);else{h=Buffer.alloc(10);h[0]=129;h[1]=127;h.writeBigUInt64BE(BigInt(b.length),2)}return Buffer.concat([h,b])}
 function send(c,obj){try{if(!c.socket.destroyed)c.socket.write(WSframe(obj))}catch{}}
 function broadcast(obj){const buf=WSframe(obj);for(const c of peers)try{if(c.joined&&!c.socket.destroyed&&c.socket.writableLength<256000)c.socket.write(buf)}catch{}}
-function safeName(s){return String(s||'PILOTE').replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,16)||'PILOTE'}
+function safeName(s){return String(s||'PILOT').replace(/[^\p{L}\p{N} _-]/gu,'').slice(0,16)||'PILOTE'}
 const hues=[15,25,48,115,165,195,215,245,275,300,325,350];
 const botNames=['Vortex','Nitro','Pulse','Arc','Glitch','Rift','Nova','Kite','Turbo','Bolt','Zephyr','Flash','Ion','Comet','Flux','Aero','Jinx','Vector','Rush','Ghost','Hyper','Quark','Zoom'];
 const planets=[];
@@ -34,7 +34,7 @@ function emptyAt(x,y,extra=40){return !planets.some(p=>Math.hypot(p.x-x,p.y-y)<p
 function spawn(){for(let i=0;i<100;i++){let x=rand(-3500,3500),y=rand(-3500,3500);if(emptyAt(x,y,220)&&[...ships.values(),...botShips.values()].every(s=>Math.hypot(s.x-x,s.y-y)>160))return {x,y}}return {x:0,y:0}}
 function createBot(){
  const p=spawn(),id='bot-'+(++nextId),angle=rand(-Math.PI,Math.PI);
- const skill=rand(.66,1),aggression=rand(.44,.92);
+ const skill=rand(.62,.94),aggression=rand(.41,.84);
  return {id,bot:true,name:botNames[nextId%botNames.length],x:p.x,y:p.y,
   vx:Math.cos(angle)*rand(140,230),vy:Math.sin(angle)*rand(140,230),angle,
   hue:hues[nextId%hues.length],level:1,score:Math.round(rand(0,1100)),energy:100,
@@ -52,15 +52,15 @@ async function receive(c,m){if(!m||typeof m!=='object')return;
   c.authPending=true;
   const user=await verifyToken(m.accessToken);
   c.authPending=false;
-  if(!user){send(c,{type:'error',message:'Connexion requise : reconnecte-toi depuis Profil.'});return}
+  if(!user){send(c,{type:'error',message:'Please sign in again from Profile.'});return}
   if(c.joined){depart(c)}
-  if(ships.size>=20){send(c,{type:'error',message:'Arène pleine (20/20)'});return}
+  if(ships.size>=20){send(c,{type:'error',message:'Arena full (20/20)'});return}
   // One active connection per authenticated user (prevents duplicate simultaneous slots).
-  for(const other of peers)if(other!==c&&other.joined&&other.userId===user.id){depart(other);send(other,{type:'error',message:'Compte connecté sur un autre appareil'});}
+  for(const other of peers)if(other!==c&&other.joined&&other.userId===user.id){depart(other);send(other,{type:'error',message:'Account signed in on another device'});}
   c.userId=user.id;
   const pos=spawn();c.joined=true;c.id=c.id||'p-'+(++nextId);
   const p={id:c.id,bot:false,name:safeName(m.name),prevX:pos.x,prevY:pos.y,prevAngle:0,x:pos.x,y:pos.y,vx:0,vy:0,angle:0,hue:180,level:1,score:0,energy:100,boosting:false,invuln:3,last:Date.now(),alive:true,history:[]};
-  ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'ARÈNE PRINCIPALE',spawn:pos,planets});return;
+  ships.set(c.id,p);fillSlots();send(c,{type:'joined',id:c.id,room:'MAIN ARENA',spawn:pos,planets});return;
  }
  if(!c.joined)return;
 
@@ -208,6 +208,9 @@ function resolveImpact(a,b,contact){
   winner=va>vb?a:b;loser=winner===a?b:a;
  }else{winner=contact.aTip?a:b;loser=winner===a?b:a}
  loser.invuln=5;loser.alive=false;
+ // Cosmetic impact event only. The existing server collision verdict is unchanged.
+ const impactSpeed=Math.hypot((winner.vx||0)-(loser.vx||0),(winner.vy||0)-(loser.vy||0));
+ broadcast({type:'impact',victim:loser.id,killer:winner.id,x:loser.x,y:loser.y,hue:loser.hue,level:winner.level,speed:Math.round(impactSpeed)});
  if(loser.bot){loser.respawn=serverTime+2;broadcast({type:'bot-down',victim:loser.id,x:loser.x,y:loser.y,level:loser.level,hue:loser.hue,killer:winner.id});}
  else{const c=[...peers].find(c=>c.id===loser.id);if(c){send(c,{type:'defeat',victim:loser.id,killer:winner.id});depart(c)}}
  if(winner.bot){winner.score+=140+22*loser.level;winner.level=Math.min(100,1+Math.floor(winner.score/950));}
