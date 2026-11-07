@@ -29,3 +29,5 @@ Tested with Node syntax checks, an HTTP health check, an unauthorized `/owner-to
 - Trail: restored the previous translucent bubble trail style.
 
 - Trail adjusted again: slightly shorter and bigger bubbles.
+
+- **V9 trail polish:** all bubble trails are slightly shorter (~12%) with smaller bubbles (~10%). Premium skin-specific glow and particle trails have also been shortened, without changing their colours or aura.
