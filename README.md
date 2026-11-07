@@ -1,58 +1,55 @@
-# MOMENTUM.IO — POWER SIGNATURE (full GitHub release)
+# MOMENTUM.IO — SHIP EVOLUTION + PRIVATE OWNER PANEL
 
-**Complete update based on the most recent English release with 3,000 orbs.** Upload the five files to GitHub, preserving `public/index.html`.
+Complete GitHub/Render release built on the previous **Power Signature + private admin** edition. This archive contains the normal five deployment files. The game interface remains in English.
 
-## New: opponents look as powerful as they really are
+## Ship evolution (Diep.io-style progression)
 
-- **Evolving neon trails** grow brighter and wider with both player level and actual speed.
-- **Up to three moving energy rings** and a pulsing, spiky **aura** distinguish strong pilots even when not boosting.
-- **Decorative winglets** make high-level ships appear more imposing without changing the four-point collision shape or hitbox.
-- **Occasional lightning** near the most advanced ships, plus **transparent ghost silhouettes** behind very fast pilots.
-- **Mach-cone / sonic-barrier effect** on high-speed boosted ships, with a brief shock ring when the threshold is crossed. Thresholds scale with actual maximum speed.
-- **Bigger, speed-sensitive shockwaves at confirmed collisions**. The server sends a visual-only `impact` event; its combat/collision decisions are unchanged.
-- **Visual power now applies to all remote players and bots**, not just your own ship. Level markers and `FAST` labels complement the graphical cues.
-- **FPS-aware detail:** expensive ghost/lightning/ring animations are reserved for nearby ships; distant pilots retain a lower-cost power outline. Low-FPS mode further reduces nonessential effects.
+The game returns to the three strongest visual indicators of power: **long, thick neon trails**, a **bright glow/aura**, and a clear ship silhouette. Instead of relying on excessive bolts, ghost copies and sonic-cone effects, the ship's geometry evolves visually at fixed levels:
 
-## Previous features retained
+| Level | Visual form |
+| --- | --- |
+| 1–4 | Original dart-shaped ship |
+| 5–9 | Split rear wings |
+| 10–19 | Double rear fins |
+| 20–34 | Interceptor with pronounced points |
+| 35–49 | Wider dreadnought wings and side spines |
+| 50+ | Apex: additional pointed blades and luminous details |
 
-- Full English UI, **MOMENTUM.IO** home title, 3,000 evenly distributed orbs in the dynamic arena, orb–planet exclusion, scattered loot.
-- Multiplayer 20-pilot arena, Google/Supabase login and account gate, server-side bot navigation, movement and wall avoidance.
-- Existing hitbox, swept collision logic, network contact reconciliation, player flight physics, inertia after boost, planet gravity.
-- Daily chest, ranking banner, skins/shop/profile, local tokens, improved shop readability.
-- Mouse pointer lock (click arena; Escape to release), mobile touch controls.
-- Compact centered Game Over modal and integrated site errors.
+These upgrades apply to **all visible players and bots**, not only the owner. Visual evolution is driven by level; trail brightness also responds to actual speed. All wings and points are **cosmetic only**: they do not change a ship's hitbox, physics, turn speed, speed cap or collision winner.
 
-## Deploy to GitHub/Render
+The collision-impact shockwave remains from the previous version. The old sound-barrier visual, afterimages and electric lightning are removed from the persistent ship render to keep the scene readable and reduce effect cost. Paid skins retain their chosen colours and effects.
 
-1. Extract this ZIP.
-2. In the `oliviermax275-design/momentum.io` GitHub repository, upload the five files **with the `public/` folder preserved** and commit changes to `main`.
-3. Wait for the Render deploy to show `Live`. Reload the game with `Ctrl+Shift+R`.
-4. Test with a level 10–35 opponent or several fast bots. If you see frame drops, compare FPS with the ORIGIN skin and premium skins.
+## Owner-only panel (Escape)
 
-## Testing and limitations
+The owner panel is now **served only after a real account authorization**, not included in the public `index.html` page. Other players get only **Continue / Leave Match** when pressing Escape. The server verifies the Google-linked owner account with Supabase and rejects requests to `/owner-tools` and admin WebSocket commands from all other accounts. A disconnected or revoked admin client loses the panel entirely.
 
-- Node syntax check, client JS syntax check, and browser smoke tests passed. Full 3,000-orb game loaded with no JS errors.
-- A synthetic headless Chromium stress test with 19 nearby high-power opponents ranged roughly 50–60 FPS across repeated runs, depending on test conditions. **Real Render latency, live multiplayer effects, mobile devices and 60 FPS on your own computer are not guaranteed by these tests.**
-- **Token balances, ranking rewards, skins and purchases still use local prototype storage. Real-money payment must remain disabled** until a secure, server-authoritative economy is implemented and verified.
+Owner test controls: level 20 / 50 / 100 or custom 1–500, +1 level, speed ×1 / ×3 / ×10, combo ×2 / ×5 / ×10, 60-second shield, local test chest, Top 1 reward preview, reset. These are for testing, not secure permanent progression or paid rewards.
 
-## Owner-only admin panel (Escape)
+## Preserved from previous versions
 
-The owner can open **Escape → Admin tools** while playing. Regular players see only **Continue / Leave Match**.
+- English homepage and UI, **3,000 orbs** in the dynamic arena, planet exclusion, scattered loot.
+- Multiplayer 20-pilot server, bot AI and planet gravity.
+- Current server/client collision and hitbox system, handling side/rear/fast contacts.
+- Mouse steering/pointer lock, keyboard boost, mobile touch controls, boost inertia.
+- Google/Supabase sign-in, profile, skins, shop, chests, leaderboard rewards banner, centered Game Over window.
+- Supabase configuration via existing Render environment variables.
 
-The Node server checks the currently connected Supabase identity obtained from `/auth/v1/user`. Access is granted only when the verified account email matches the configured owner and includes a Google identity. The client cannot authorize itself by changing its nickname, local storage, or visible UI. Every admin action is also refused by the server unless it comes from an authorized connected owner session.
+## Deployment
 
-**Test controls:** set level 20 / 50 / 100 or any level 1–500, +1 level, speed ×1 / ×3 / ×10, combos ×2 / ×5 / ×10, a 60-second shield, one locally stored test chest, Top 1 reward preview (no tokens), and reset to normal test settings. These are for game testing, not a permanent multiplayer progression system.
+1. Unzip and upload **all five files** to your GitHub `momentum.io` repository, preserving `public/index.html`.
+2. Commit the changes on the `main` branch.
+3. Wait for Render to deploy and show **Live**.
+4. Refresh the site with **Ctrl + Shift + R**.
+5. Test the ship at levels 1, 5, 10, 20, 35 and 50 using the authorized Escape panel. Also check that a regular account sees no admin controls.
 
-The beta game still reports player progression from the client; fully cheat-proof competitive rankings and a real-money token economy require server-authoritative progression and a secure database. **Do not enable real payments using this beta.**
+No additional Supabase, Google Cloud or Render credentials are required.
 
-### Update on GitHub
+## Verification / limitations
 
-Upload these 5 files, preserving `public/index.html`:
+- JavaScript syntax checks passed for the Node server and browser scripts.
+- Server boot and `/healthz` succeeded; unauthenticated `/owner-tools` returned HTTP **403**.
+- Permission tests passed: approved Google account accepted, other addresses / non-Google provider refused, unauthorized WebSocket admin command refused.
+- In Chromium with a **simulated** WebSocket, a normal player had no admin DOM; owner authorization fetched the private panel; setting level 50 worked; revoking access removed the panel. Browser test captured the level-50 evolving ship and found no JavaScript errors.
+- A comprehensive high-load FPS test with 19 evolved ships did not complete reliably. **60 FPS in all real player and Render conditions is not guaranteed**. Test in the actual browser and report any performance issues.
 
-- `server.js`
-- `public/index.html`
-- `package.json`
-- `render.yaml`
-- `README.md`
-
-Keep existing `SUPABASE_URL` and `SUPABASE_ANON_KEY` on Render. No new Google Cloud credential is required. After Render is `Live`, sign in using the allowed Google account, start a match, and press `Esc`. The admin panel appears only once the server confirms the join.
+**Security note:** while the owner admin commands are protected, the rest of the beta progression, token wallet and shop still rely partly on client-side state. Do not activate real payments until the economy is stored and validated server-side.

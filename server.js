@@ -25,6 +25,14 @@ async function verifyToken(token){
  }catch{return null}
 }
 
+const OWNER_PANEL_HTML=`<div id="admin-controls">
+ <div class="admin-heading"><span>OWNER CONTROLS</span><b>ADMIN PANEL</b><small>PRIVATE TEST TOOLS · GOOGLE VERIFIED</small></div>
+ <div class="admin-group"><strong>LEVEL</strong><button data-admin-action="level" data-admin-value="20">20</button><button data-admin-action="level" data-admin-value="50">50</button><button data-admin-action="level" data-admin-value="100">100</button><label class="admin-level-entry">Custom <input id="admin-custom-level" type="number" inputmode="numeric" min="1" max="500" step="1" value="25"></label><button id="admin-set-level">SET</button></div>
+ <div class="admin-group"><strong>MAX SPEED</strong><button data-admin-action="speed" data-admin-value="1">×1</button><button data-admin-action="speed" data-admin-value="3">×3</button><button data-admin-action="speed" data-admin-value="10">×10</button></div>
+ <div class="admin-group"><strong>COMBO</strong><button data-admin-action="combo" data-admin-value="2">×2</button><button data-admin-action="combo" data-admin-value="5">×5</button><button data-admin-action="combo" data-admin-value="10">×10</button></div>
+ <div class="admin-group"><strong>TEST COMMANDS</strong><button data-admin-action="add-level">+1 LEVEL</button><button data-admin-action="shield">SHIELD 60S</button><button data-admin-action="chest">+1 TEST CHEST</button><button data-admin-action="top1">PREVIEW TOP 1</button><button data-admin-action="reset">RESET</button></div>
+ <div class="admin-status" id="admin-status" role="status" aria-live="polite">Verified owner · changes are for testing only.</div>
+ </div>`;
 const peers=new Set(),ships=new Map(),botShips=new Map();let nextId=0,serverTime=0;
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function WSframe(obj){const b=Buffer.from(JSON.stringify(obj));let h;if(b.length<126)h=Buffer.from([129,b.length]);else if(b.length<65536)h=Buffer.from([129,126,b.length>>8,b.length&255]);else{h=Buffer.alloc(10);h[0]=129;h[1]=127;h.writeBigUInt64BE(BigInt(b.length),2)}return Buffer.concat([h,b])}
@@ -401,8 +409,18 @@ function step(dt){serverTime+=dt;
  // Une trajectoire reçue du client ne doit pas être retestée aux ticks suivants.
  for(const p of ships.values()){p.prevX=p.x;p.prevY=p.y;p.prevAngle=p.angle}
 }
-const app=http.createServer((req,res)=>{
+const app=http.createServer(async(req,res)=>{
  let url;try{url=new URL(req.url,'http://localhost')}catch{res.writeHead(400).end();return}
+ if(url.pathname==='/owner-tools'){
+  const auth=String(req.headers.authorization||'');
+  const user=auth.startsWith('Bearer ')?await verifyToken(auth.slice(7)):null;
+  if(!isAdminUser(user)){
+   res.writeHead(403,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+   res.end('Forbidden');return;
+  }
+  res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});
+  res.end(OWNER_PANEL_HTML);return;
+ }
  if(url.pathname==='/auth-config'){
   res.writeHead(200,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});
   res.end(JSON.stringify({enabled:AUTH_ENABLED,url:AUTH_ENABLED?AUTH_URL:'',anonKey:AUTH_ENABLED?AUTH_KEY:''}));return;

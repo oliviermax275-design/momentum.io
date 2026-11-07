@@ -663,14 +663,7 @@ body.aim-locked canvas#game{cursor:none}
 <div class="stat-line lvl-line"><span id="level-current">LEVEL 1</span><span id="xp-count">0 / 60 XP</span></div>
 <div id="xp-bar" role="progressbar" aria-label="Progression vers le prochain niveau"><div id="xp-fill"></div></div>
 <div class="stat-line lvl-foot"><span id="level-next">NEXT: 2</span><span>SPEED: DIMINISHING GAINS</span></div>
-<div id="speed-caps" aria-label="Maximum speeds">NORMAL <b id="normal-cap">151</b> · BOOST <b id="boost-cap">205</b> km/h</div><div id="combo-status" hidden></div><div id="sub">SCORE <b id="score-count">0</b> · KILLS <b id="kills-count">0</b></div></div></div><div id="board" class="panel"><b>LEADERBOARD</b><div>Loading…</div></div><canvas id="minimap" width="256" height="256" aria-label="Minimap showing player positions"></canvas><div id="fps">CONNECTING · 60 FPS</div><div id="rank-chest-hud" hidden>TOP 3 · 0 TOKEN/min</div><div id="wallet-hud"><span id="hud-tokens">∞</span> TOKENS</div><div id="aim-reticle" aria-hidden="true"></div><div id="notice"></div><div id="toast"></div><div id="bottom"><b>Mouse</b>: steer &nbsp; · &nbsp; <kbd>SPACE</kbd>: boost &nbsp; · &nbsp; <kbd>ESC</kbd>: menu · click to lock mouse</div><div id="mobile-controls" aria-label="Touch controls"><div id="joystick" aria-label="Steering joystick"><div id="stick"></div><span class="control-label">STEER</span></div><button type="button" id="boost-touch" aria-label="Hold to boost">BOOST<span>HOLD</span></button><button type="button" id="pause-touch">MENU</button></div><div id="overlay"><canvas id="lobby-bg" aria-hidden="true"></canvas><div id="menu" aria-live="polite"></div></div><div id="leave-screen" hidden role="dialog" aria-modal="true" aria-label="Quitter l’arène"><section class="leave-card"><div class="menu-kicker">MATCH IN PROGRESS</div><h2 id="leave-title">Leave the arena?</h2><p id="leave-description">The match does <b>not</b> pause. Your ship remains vulnerable while this menu is open.</p><div id="admin-controls" hidden>
- <div class="admin-heading"><span>OWNER CONTROLS</span><b>ADMIN PANEL</b><small>PRIVATE TEST TOOLS · GOOGLE VERIFIED</small></div>
- <div class="admin-group"><strong>LEVEL</strong><button data-admin-action="level" data-admin-value="20">20</button><button data-admin-action="level" data-admin-value="50">50</button><button data-admin-action="level" data-admin-value="100">100</button><label class="admin-level-entry">Custom <input id="admin-custom-level" type="number" inputmode="numeric" min="1" max="500" step="1" value="25"></label><button id="admin-set-level">SET</button></div>
- <div class="admin-group"><strong>MAX SPEED</strong><button data-admin-action="speed" data-admin-value="1">×1</button><button data-admin-action="speed" data-admin-value="3">×3</button><button data-admin-action="speed" data-admin-value="10">×10</button></div>
- <div class="admin-group"><strong>COMBO</strong><button data-admin-action="combo" data-admin-value="2">×2</button><button data-admin-action="combo" data-admin-value="5">×5</button><button data-admin-action="combo" data-admin-value="10">×10</button></div>
- <div class="admin-group"><strong>TEST COMMANDS</strong><button data-admin-action="add-level">+1 LEVEL</button><button data-admin-action="shield">SHIELD 60S</button><button data-admin-action="chest">+1 TEST CHEST</button><button data-admin-action="top1">PREVIEW TOP 1</button><button data-admin-action="reset">RESET</button></div>
- <div class="admin-status" id="admin-status" role="status" aria-live="polite">Verified owner · changes are for testing only.</div>
- </div><div class="leave-actions"><button type="button" id="keep-playing">CONTINUE</button><button type="button" id="quit-arena" class="danger">LEAVE MATCH</button></div></section></div><div id="tutorial-panel" hidden aria-live="polite"><div class="tutorial-step-tag" id="tutorial-count">TUTORIAL · 1/3</div><h3 id="tutorial-title">Take control</h3><p id="tutorial-description">Steer your ship with your mouse or joystick.</p><div class="tutorial-actions"><button id="skip-tutorial" type="button">SKIP</button><button id="next-tutorial" type="button">NEXT</button></div></div><div id="sound-dock" aria-label="Sound controls"><button id="sound-mute" type="button" title="Toggle sound (M)" aria-label="Mute sound">🔊</button><button id="sound-settings" type="button" aria-label="Sound settings" aria-expanded="false" title="Volume and ambience">⚙️</button><div id="sound-panel" hidden><strong>GAME AUDIO</strong><label class="volume-label">Master volume <output id="sound-pct">55%</output><input id="sound-volume" type="range" min="0" max="100" step="5" value="55" aria-label="Master volume"></label><label><span>Soft ambience (optional)</span><input type="checkbox" id="sound-music"></label><small>Soft wind that grows with speed, no harsh engine noise. Works offline.</small></div></div><div id="loot-modal" hidden role="dialog" aria-modal="true" aria-label="Daily chest reward"><div class="loot-dialog"><button type="button" id="loot-close" class="loot-close" aria-label="Fermer">CLOSE</button><div class="loot-label" id="loot-title">DAILY REWARD</div><div class="loot-stage"><div class="loot-aurora"></div><div class="loot-beam"></div><div class="loot-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="treasure-figure loot-figure" aria-hidden="true"><div class="treasure-rays"></div><div class="treasure-core"><div class="treasure-lid"><div class="treasure-lid-metal"></div><div class="treasure-lid-band"></div><div class="treasure-lid-gem"></div></div><div class="treasure-glow"></div><div class="treasure-bottom"><div class="treasure-bottom-shine"></div><div class="treasure-left-band"></div><div class="treasure-right-band"></div><div class="treasure-lock"></div></div></div><div class="treasure-floor"></div></div></div><div class="loot-earned" aria-live="polite"><div class="loot-subtitle">YOU RECEIVED</div><div class="loot-value"><span class="coin-mark"></span><span id="loot-number">+20</span></div><div class="loot-unit">TOKENS</div></div><button id="loot-collect" type="button" hidden>COLLECT</button><div class="loot-note" id="loot-note">ONE CHEST DAILY</div></div></div><script>
+<div id="speed-caps" aria-label="Maximum speeds">NORMAL <b id="normal-cap">151</b> · BOOST <b id="boost-cap">205</b> km/h</div><div id="combo-status" hidden></div><div id="sub">SCORE <b id="score-count">0</b> · KILLS <b id="kills-count">0</b></div></div></div><div id="board" class="panel"><b>LEADERBOARD</b><div>Loading…</div></div><canvas id="minimap" width="256" height="256" aria-label="Minimap showing player positions"></canvas><div id="fps">CONNECTING · 60 FPS</div><div id="rank-chest-hud" hidden>TOP 3 · 0 TOKEN/min</div><div id="wallet-hud"><span id="hud-tokens">∞</span> TOKENS</div><div id="aim-reticle" aria-hidden="true"></div><div id="notice"></div><div id="toast"></div><div id="bottom"><b>Mouse</b>: steer &nbsp; · &nbsp; <kbd>SPACE</kbd>: boost &nbsp; · &nbsp; <kbd>ESC</kbd>: menu · click to lock mouse</div><div id="mobile-controls" aria-label="Touch controls"><div id="joystick" aria-label="Steering joystick"><div id="stick"></div><span class="control-label">STEER</span></div><button type="button" id="boost-touch" aria-label="Hold to boost">BOOST<span>HOLD</span></button><button type="button" id="pause-touch">MENU</button></div><div id="overlay"><canvas id="lobby-bg" aria-hidden="true"></canvas><div id="menu" aria-live="polite"></div></div><div id="leave-screen" hidden role="dialog" aria-modal="true" aria-label="Leave the arena"><section class="leave-card"><div class="menu-kicker">MATCH IN PROGRESS</div><h2 id="leave-title">Leave the arena?</h2><p id="leave-description">The match does <b>not</b> pause. Your ship remains vulnerable while this menu is open.</p><div class="leave-actions"><button type="button" id="keep-playing">CONTINUE</button><button type="button" id="quit-arena" class="danger">LEAVE MATCH</button></div></section></div><div id="tutorial-panel" hidden aria-live="polite"><div class="tutorial-step-tag" id="tutorial-count">TUTORIAL · 1/3</div><h3 id="tutorial-title">Take control</h3><p id="tutorial-description">Steer your ship with your mouse or joystick.</p><div class="tutorial-actions"><button id="skip-tutorial" type="button">SKIP</button><button id="next-tutorial" type="button">NEXT</button></div></div><div id="sound-dock" aria-label="Sound controls"><button id="sound-mute" type="button" title="Toggle sound (M)" aria-label="Mute sound">🔊</button><button id="sound-settings" type="button" aria-label="Sound settings" aria-expanded="false" title="Volume and ambience">⚙️</button><div id="sound-panel" hidden><strong>GAME AUDIO</strong><label class="volume-label">Master volume <output id="sound-pct">55%</output><input id="sound-volume" type="range" min="0" max="100" step="5" value="55" aria-label="Master volume"></label><label><span>Soft ambience (optional)</span><input type="checkbox" id="sound-music"></label><small>Soft wind that grows with speed, no harsh engine noise. Works offline.</small></div></div><div id="loot-modal" hidden role="dialog" aria-modal="true" aria-label="Daily chest reward"><div class="loot-dialog"><button type="button" id="loot-close" class="loot-close" aria-label="Fermer">CLOSE</button><div class="loot-label" id="loot-title">DAILY REWARD</div><div class="loot-stage"><div class="loot-aurora"></div><div class="loot-beam"></div><div class="loot-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="treasure-figure loot-figure" aria-hidden="true"><div class="treasure-rays"></div><div class="treasure-core"><div class="treasure-lid"><div class="treasure-lid-metal"></div><div class="treasure-lid-band"></div><div class="treasure-lid-gem"></div></div><div class="treasure-glow"></div><div class="treasure-bottom"><div class="treasure-bottom-shine"></div><div class="treasure-left-band"></div><div class="treasure-right-band"></div><div class="treasure-lock"></div></div></div><div class="treasure-floor"></div></div></div><div class="loot-earned" aria-live="polite"><div class="loot-subtitle">YOU RECEIVED</div><div class="loot-value"><span class="coin-mark"></span><span id="loot-number">+20</span></div><div class="loot-unit">TOKENS</div></div><button id="loot-collect" type="button" hidden>COLLECT</button><div class="loot-note" id="loot-note">ONE CHEST DAILY</div></div></div><script>
 (()=>{'use strict';const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');const mini=document.getElementById('minimap'),mctx=mini.getContext('2d');const UI={normalCap:document.getElementById('normal-cap'),boostCap:document.getElementById('boost-cap'),comboStatus:document.getElementById('combo-status'),testScreen:document.getElementById('test-screen'),testReadout:document.getElementById('test-readout'),overlay:document.getElementById('overlay'),menu:document.getElementById('menu'),start:document.getElementById('start'),speed:document.getElementById('speed'),sub:document.getElementById('sub'),board:document.getElementById('board'),notice:document.getElementById('notice'),toast:document.getElementById('toast'),xpFill:document.getElementById('xp-fill'),xpCount:document.getElementById('xp-count'),lvlNow:document.getElementById('level-current'),lvlNext:document.getElementById('level-next'),scoreCount:document.getElementById('score-count'),killsCount:document.getElementById('kills-count')};let W=innerWidth,H=innerHeight,dpr=1,playing=false,paused=false,dead=false,last=0,gameTime=0,shake=0,noticeTime=0,toastTime=0,spawnProtection=0,elapsed=0,zoom=1,fps=60,preset='dynamic';const ORIGINAL_MENU='';// Souffle de vent au boost, sans moteur spatial. Aucun audio externe.
 const pref=(()=>{try{return JSON.parse(localStorage.getItem('momentum-sound')||'{}')}catch{return {}}})();
 const snd={ctx:null,master:null,fx:null,music:null,hum:null,humVol:null,windGain:null,windFilter:null,volume:Number.isFinite(pref.volume)?Math.max(0,Math.min(1,pref.volume)):.55,muted:!!pref.muted,musicEnabled:pref.music===true,lastOrb:0,lastHit:0,lastWall:0,step:0};
@@ -716,6 +709,39 @@ aud.mute.addEventListener('click',()=>toggleMute());aud.settings.addEventListene
 let arenaSocket=null,arenaId=null,arenaState='hors ligne',netNextSend=0,netPingClock=0,netOneWayDelay=.040;
 const clientContactTimes=new Map();
 const remoteById=new Map();let netPlayers=1,netBots=19,netRoom='ARENA 1',isAdminClient=false,adminSpeedMultiplier=1,adminTop1PreviewUntil=0;
+// Owner commands are not rendered into ordinary users' DOM. Server enforces permission independently.
+let adminSection=null,ownerPanelRequest=null,ownerPanelNonce=0;
+// Admin markup is never shipped in public index.html. Only a verified owner receives it.
+function ownerPanelContent(html){
+ const host=document.createElement('div');host.innerHTML=html.trim();
+ const panel=host.firstElementChild;
+ if(!panel||panel.id!=='admin-controls')return;
+ adminSection=panel;
+ document.querySelector('#leave-screen .leave-actions').before(adminSection);
+ adminSection.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-admin-action]');
+  if(b){adminSend(b.dataset.adminAction,b.hasAttribute('data-admin-value')?Number(b.dataset.adminValue):undefined);return;}
+  if(ev.target.closest('#admin-set-level')){
+   const value=Number(adminSection.querySelector('#admin-custom-level').value);
+   if(!Number.isInteger(value)||value<1||value>500){siteError('Choose a level between 1 and 500.');return;}
+   adminSend('level',value);
+  }
+ });
+ adminSection.querySelector('#admin-custom-level').addEventListener('keydown',ev=>{if(ev.code==='Enter'){ev.preventDefault();adminSection.querySelector('#admin-set-level').click();}});
+}
+function syncOwnerPanel(){
+ const allowed=isAdminClient&&!!arenaId;
+ if(!allowed){ownerPanelNonce++;ownerPanelRequest=null;if(adminSection){adminSection.remove();adminSection=null;}return;}
+ if(adminSection||ownerPanelRequest)return;
+ const token=window.momentumAuth?.token;
+ if(!token)return;
+ const nonce=++ownerPanelNonce;
+ ownerPanelRequest=fetch('/owner-tools',{headers:{Authorization:'Bearer '+token},cache:'no-store'})
+  .then(resp=>{if(!resp.ok)throw Error('Owner access not authorized');return resp.text()})
+  .then(html=>{if(nonce!==ownerPanelNonce||!isAdminClient||!arenaId)return;ownerPanelContent(html);})
+  .catch(err=>{if(nonce!==ownerPanelNonce)return;siteError('Owner tools unavailable. Try reopening the menu.');})
+  .finally(()=>{if(nonce===ownerPanelNonce)ownerPanelRequest=null;});
+}
 function netSend(o){if(arenaSocket?.readyState===1)try{arenaSocket.send(JSON.stringify(o))}catch(e){}}
 function netConnect(){if(arenaSocket&&arenaSocket.readyState<=1)return;
  const scheme=location.protocol==='https:'?'wss:':'ws:';
@@ -723,7 +749,7 @@ function netConnect(){if(arenaSocket&&arenaSocket.readyState<=1)return;
  arenaSocket.onopen=()=>{arenaState='connecté';if(playing&&player)netSend({type:'join',name:player.name,skin:profile?.equipped||'origin',accessToken:window.momentumAuth?.token||''});};
  arenaSocket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}netReceive(m)};
  arenaSocket.onerror=()=>{arenaState='déconnecté'};
- arenaSocket.onclose=()=>{arenaState='déconnecté';arenaId=null;isAdminClient=false;adminSpeedMultiplier=1;adminTop1PreviewUntil=0;document.getElementById('admin-controls').hidden=true;remoteById.clear();netPlayers=1;netBots=19;setTimeout(()=>{if(playing)netConnect()},1800)};
+ arenaSocket.onclose=()=>{arenaState='déconnecté';arenaId=null;isAdminClient=false;adminSpeedMultiplier=1;adminTop1PreviewUntil=0;syncOwnerPanel();remoteById.clear();netPlayers=1;netBots=19;setTimeout(()=>{if(playing)netConnect()},1800)};
 }
 function netEntity(s,serverAt){let e=remoteById.get(s.id);if(!e){e=entity(s.x,s.y,true);e.id=s.id;e.name=s.name;e.trail=[];remoteById.set(s.id,e)}
  // Positions réseau cibles : l'affichage est interpolé à 60 FPS dans update().
@@ -734,7 +760,7 @@ function netEntity(s,serverAt){let e=remoteById.get(s.id);if(!e){e=entity(s.x,s.
  return e;
 }
 function netReceive(m){
- if(m.type==='admin-denied'){isAdminClient=false;document.getElementById('admin-controls').hidden=true;siteError('Admin access denied');return;}
+ if(m.type==='admin-denied'){isAdminClient=false;syncOwnerPanel();siteError('Admin access denied');return;}
  if(m.type==='admin-result'){
   if(!isAdminClient||!player)return;
   const action=m.action;
@@ -748,12 +774,12 @@ function netReceive(m){
   if(action==='top1'&&m.top1===true){adminTop1PreviewUntil=performance.now()+12000;}
   if(action==='reset'&&m.reset===true){player.level=1;player.xp=0;player.score=0;player.streak=0;player.streakTime=0;adminSpeedMultiplier=1;updateHud();}
   const val=action==='level'||action==='add-level'?'LEVEL '+m.level:action==='speed'?'SPEED ×'+m.speed:action==='combo'?'COMBO ×'+m.combo:action==='shield'?'SHIELD 60S':action==='chest'?'LOCAL TEST CHEST +1':action==='top1'?'TOP 1 PREVIEW (NO TOKENS)':'SETTINGS RESET';
-  document.getElementById('admin-status').textContent='✓ '+val+' · Authorized by server';toast('ADMIN · '+val);return;
+  const adminStatus=adminSection?.querySelector('#admin-status');if(adminStatus)adminStatus.textContent='✓ '+val+' · Authorized by server';toast('ADMIN · '+val);return;
  }
  if(m.type==='pong'){if(Number.isFinite(Number(m.t))){const oneWay=clamp((performance.now()-Number(m.t))/2000,.012,.13);netOneWayDelay=netOneWayDelay*.70+oneWay*.30;}return;}
  if(m.type==='contact-result'){const e=remoteById.get(m.victim);if(e&&(!m.valid||!m.aTip||m.bTip))e.predictDownUntil=0;return;}
  if(m.type==='bump'&&player?.alive){const nx=Number(m.nx),ny=Number(m.ny);if(Number.isFinite(nx)&&Number.isFinite(ny)){const away=player.vx*nx+player.vy*ny;player.vx+=nx*(110-Math.min(0,away)*.3);player.vy+=ny*(110-Math.min(0,away)*.3);}return;}
- if(m.type==='joined'){arenaId=m.id;arenaState='connecté';netRoom=m.room||'ARENA 1';isAdminClient=m.isAdmin===true;adminSpeedMultiplier=1;document.getElementById('admin-controls').hidden=!isAdminClient;if(Array.isArray(m.planets)&&m.planets.length){planets=m.planets;keepOrbsOutsidePlanets()}if(player&&m.spawn){player.x=m.spawn.x;player.y=m.spawn.y;camera.x=player.x;camera.y=player.y;player.trail=[]}toast('CONNECTED · '+netRoom);return;}
+ if(m.type==='joined'){arenaId=m.id;arenaState='connecté';netRoom=m.room||'ARENA 1';isAdminClient=m.isAdmin===true;adminSpeedMultiplier=1;syncOwnerPanel();if(Array.isArray(m.planets)&&m.planets.length){planets=m.planets;keepOrbsOutsidePlanets()}if(player&&m.spawn){player.x=m.spawn.x;player.y=m.spawn.y;camera.x=player.x;camera.y=player.y;player.trail=[]}toast('CONNECTED · '+netRoom);return;}
  if(m.type==='state'&&arenaId){netPlayers=m.humans;netBots=m.bots;const used=new Set();for(const s of m.ships||[]){if(s.id===arenaId)continue;used.add(s.id);netEntity(s,m.at)}for(const id of remoteById.keys())if(!used.has(id))remoteById.delete(id);if(Array.isArray(m.planets)&&m.planets.length){planets=m.planets;keepOrbsOutsidePlanets()}return;}
  if(m.type==='impact'){
   // Server-confirmed impact: all viewers see a shockwave at the same location.
@@ -776,7 +802,7 @@ function netReceive(m){
  if(m.type==='error')toast(m.message||'NETWORK ERROR');
 }
 function netJoin(){netConnect();if(arenaSocket?.readyState===1)netSend({type:'join',name:player.name,skin:profile?.equipped||'origin',accessToken:window.momentumAuth?.token||''});}
-function netLeave(){netSend({type:'leave'});arenaId=null;isAdminClient=false;adminSpeedMultiplier=1;adminTop1PreviewUntil=0;document.getElementById('admin-controls').hidden=true;remoteById.clear();clientContactTimes.clear();}
+function netLeave(){netSend({type:'leave'});arenaId=null;isAdminClient=false;adminSpeedMultiplier=1;adminTop1PreviewUntil=0;syncOwnerPanel();remoteById.clear();clientContactTimes.clear();}
 function netReport(dt){if(!arenaId||arenaSocket?.readyState!==1||!player?.alive)return;netPingClock+=dt;if(netPingClock>2.0){netPingClock=0;netSend({type:'ping',t:performance.now()})}netNextSend+=dt;if(netNextSend<.033)return;netNextSend=0;netSend({type:'pilot',x:player.x,y:player.y,vx:player.vx,vy:player.vy,angle:player.angle,level:player.level,score:player.score,energy:player.energy,boosting:player.boosting,skin:profile?.equipped||'origin'});}
 const TAU=Math.PI*2;const WALL_CRASH_KMH=90;let lastWallImpactKmh=0;let WORLD=2700,MAX_BOTS=19,MAX_ORBS=240;const mouse={x:W*.67,y:H*.5,active:false};let boost=false,touchHeading=null;const rand=(a,b)=>a+Math.random()*(b-a),clamp=(a,l,h)=>Math.max(l,Math.min(h,a)),hyp=Math.hypot;let player,bots=[],orbs=[],planets=[],sparks=[],rings=[],floats=[],camera={x:0,y:0},best=0,nickname='PILOT';try{nickname=String(localStorage.getItem('momentum-nick')||'PILOT').replace(/[^\wÀ-ÿ -]/g,'').trim().slice(0,16)||'PILOT'}catch(e){}try{best=Number(localStorage.getItem('momentumBest')||0)}catch(e){}const names=['Vortex','Nitro','Pulse','Arc','Glitch','Rift','Nova','Kite','Turbo','Bolt','Zephyr','Flash','Ion','Comet','Flux','Aero','Jinx','Vector','Rush','Ghost','Hyper','Quark','Zoom'];const hues=[15,25,48,115,165,195,215,245,275,300,325,350];function resize(){dpr=Math.min(devicePixelRatio||1,1.5);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);if(touchHeading!==null){mouse.x=W/2+Math.cos(touchHeading)*180;mouse.y=H/2+Math.sin(touchHeading)*180}else if(!mouse.active){mouse.x=W*.7;mouse.y=H*.5}}addEventListener('resize',resize);resize();function unit(a){return{x:Math.cos(a),y:Math.sin(a)}}function pick(a){return a[Math.floor(rand(0,a.length))]}function entity(x,y,bot=false){let a=rand(0,TAU);return{x,y,vx:0,vy:0,angle:a,energy:100,level:1,xp:0,score:0,kills:0,hue:bot?pick(hues):180,name:bot?pick(names):nickname,r:bot?14:16,alive:true,invuln:2.2,bot,thought:0,targetAngle:a,boosting:false,streak:0,streakTime:0,bounceCooldown:0,levelPulse:0,trail:[]}}function orb(x,y,power,kind){
  power=power||1;
@@ -905,12 +931,12 @@ function keepOrbsOutsidePlanets(){
   }
  }
 }
-function floatReward(x,y,text,color){floats.push({x,y,text,color,life:.8});if(floats.length>25)floats.shift()}function addOrbs(n){for(let i=0;i<n;i++){const item=newOrb();if(item)orbs.push(item)}}function spawnBot(){let x,y,tries=0;do{if(preset==='dynamic'&&player&&Math.random()<.8){let a=rand(0,TAU),d=rand(750,1800);x=clamp(player.x+Math.cos(a)*d,-WORLD*.92,WORLD*.92);y=clamp(player.y+Math.sin(a)*d,-WORLD*.92,WORLD*.92)}else{x=rand(-WORLD*.92,WORLD*.92);y=rand(-WORLD*.92,WORLD*.92)}}while(++tries<250&&((player&&hyp(x-player.x,y-player.y)<700)||planetAt(x,y,120)));let b=entity(x,y,true);b.score=Math.round(rand(0,1600));b.level=Math.max(1,1+Math.floor(b.score/220));b.r=14;b.energy=rand(40,100);return b}function reset(){if(!window.momentumAuth?.user){window.momentumAuth?.show?.();return}if(playing&&!dead)recordCompletedRun();currentRunElapsed=0;runMaxSpeed=0;runRecorded=false;if(!profile)loginLocal(nickname);grantDailyChest();nickname=profile.nick;revivesThisRun=0;earnFraction=0;chestSaveClock=0;menuOpen=false;isAdminClient=false;adminSpeedMultiplier=1;adminTop1PreviewUntil=0;document.getElementById('admin-controls').hidden=true;document.getElementById('leave-screen').hidden=true;startAudio();let wasPlaying=playing;WORLD=preset==='dynamic'?4200:2700;MAX_BOTS=19;MAX_ORBS=preset==='dynamic'?3000:1200;bots=[];orbs=[];planets=[];sparks=[];rings=[];orbSectorIndex=0;refreshOrbSectorOrder();gameTime=0;elapsed=0;zoom=1;lastWallImpactKmh=0;player=entity(0,0);player.name=nickname;player.invuln=3;floats=[];buildPlanets();for(let i=0;i<MAX_BOTS;i++)bots.push(spawnBot());addOrbs(MAX_ORBS);camera={x:0,y:0};playing=true;paused=false;dead=false;UI.overlay.classList.remove('death-modal');UI.overlay.classList.add('hidden');if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();document.body.classList.add('in-game');document.getElementById('pause-touch').textContent='MENU';last=performance.now();if(!wasPlaying)requestAnimationFrame(frame);lockAim();toast('SHARED ARENA · 20 PILOTS');netJoin();updateHud();playSound('start')}
-function visualTier(level){return level>=35?5:level>=20?4:level>=10?3:level>=5?2:level>=2?1:0}
+function floatReward(x,y,text,color){floats.push({x,y,text,color,life:.8});if(floats.length>25)floats.shift()}function addOrbs(n){for(let i=0;i<n;i++){const item=newOrb();if(item)orbs.push(item)}}function spawnBot(){let x,y,tries=0;do{if(preset==='dynamic'&&player&&Math.random()<.8){let a=rand(0,TAU),d=rand(750,1800);x=clamp(player.x+Math.cos(a)*d,-WORLD*.92,WORLD*.92);y=clamp(player.y+Math.sin(a)*d,-WORLD*.92,WORLD*.92)}else{x=rand(-WORLD*.92,WORLD*.92);y=rand(-WORLD*.92,WORLD*.92)}}while(++tries<250&&((player&&hyp(x-player.x,y-player.y)<700)||planetAt(x,y,120)));let b=entity(x,y,true);b.score=Math.round(rand(0,1600));b.level=Math.max(1,1+Math.floor(b.score/220));b.r=14;b.energy=rand(40,100);return b}function reset(){if(!window.momentumAuth?.user){window.momentumAuth?.show?.();return}if(playing&&!dead)recordCompletedRun();currentRunElapsed=0;runMaxSpeed=0;runRecorded=false;if(!profile)loginLocal(nickname);grantDailyChest();nickname=profile.nick;revivesThisRun=0;earnFraction=0;chestSaveClock=0;menuOpen=false;isAdminClient=false;adminSpeedMultiplier=1;adminTop1PreviewUntil=0;syncOwnerPanel();document.getElementById('leave-screen').hidden=true;startAudio();let wasPlaying=playing;WORLD=preset==='dynamic'?4200:2700;MAX_BOTS=19;MAX_ORBS=preset==='dynamic'?3000:1200;bots=[];orbs=[];planets=[];sparks=[];rings=[];orbSectorIndex=0;refreshOrbSectorOrder();gameTime=0;elapsed=0;zoom=1;lastWallImpactKmh=0;player=entity(0,0);player.name=nickname;player.invuln=3;floats=[];buildPlanets();for(let i=0;i<MAX_BOTS;i++)bots.push(spawnBot());addOrbs(MAX_ORBS);camera={x:0,y:0};playing=true;paused=false;dead=false;UI.overlay.classList.remove('death-modal');UI.overlay.classList.add('hidden');if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();document.body.classList.add('in-game');document.getElementById('pause-touch').textContent='MENU';last=performance.now();if(!wasPlaying)requestAnimationFrame(frame);lockAim();toast('SHARED ARENA · 20 PILOTS');netJoin();updateHud();playSound('start')}
+function visualTier(level){return level>=50?5:level>=35?4:level>=20?3:level>=10?2:level>=5?1:0}
 // Le thème (turquoise par défaut) et le palier visuel sont volontairement indépendants.
 // Power now belongs to EVERY pilot, not just the local player. The extra fins
 // below are decorative; the original 4-point ship collider never changes.
-function shipVisual(e){const speed=hyp(e.vx||0,e.vy||0);const velocityTier=speed>=760?3:speed>=545?2:speed>=410?1:0;const tier=Math.max(visualTier(e.level||1),velocityTier);const skin=e===player&&profile?SKINS.find(k=>k.id===profile.equipped):null;return {tier,hue:skin?skin.hue:(e===player?180+tier*4:e.hue)}}
+function shipVisual(e){const tier=visualTier(e.level||1);const skin=e===player&&profile?SKINS.find(k=>k.id===profile.equipped):null;return {tier,hue:skin?skin.hue:(e===player?180+tier*4:e.hue)}}
 function msg(txt,t=1.7){UI.notice.innerHTML=txt;UI.notice.style.opacity=1;noticeTime=t}function toast(t){UI.toast.textContent=t;UI.toast.style.opacity=1;toastTime=3}function siteError(t){toast('⚠ '+String(t||'Something went wrong'));const el=UI.toast;el.setAttribute('role','alert');el.classList.add('error-banner');setTimeout(()=>el.classList.remove('error-banner'),3800)}function levelUp(e){while(e.xp>=e.level*60){
 const oldLevel=e.level;
 e.xp-=e.level*60;e.level++;
@@ -933,20 +959,6 @@ function combatExplosion(x,y,hue,speed=400,tier=0){
  const strength=clamp(speed/650,0,1.8);
  powerWave(x,y,hue,speed,tier,false);
  burst(x,y,hue,Math.round(15+strength*15+Math.min(5,tier)),190+strength*250);
-}
-function updateSonicFX(e,dt){
- const speed=hyp(e.vx,e.vy);
- const threshold=Math.max(420,Math.min(700,baseCap(e,true)*.80));
- const hot=speed>=threshold&&e.boosting;
- e.sonicCooldown=Math.max(0,(e.sonicCooldown||0)-dt);
- // Pulse once on crossing the threshold, never once per frame.
- if(hot&&!e.sonicActive&&e.sonicCooldown===0&&e.alive){
-  if(Math.abs(e.x-camera.x)<W/(2*zoom)+110&&Math.abs(e.y-camera.y)<H/(2*zoom)+110){
-   powerWave(e.x,e.y,shipVisual(e).hue,speed,visualTier(e.level||1),true);
-  }
-  e.sonicCooldown=.85;
- }
- e.sonicActive=hot;
 }
 function kill(victim,killer,cause='combat'){
  if(!victim.alive||victim.invuln>0)return;
@@ -995,7 +1007,7 @@ function updateEntity(e,dt){if(!e.alive)return;e.prevX=e.x;e.prevY=e.y;e.prevAng
   if(Math.abs(e.x)>edge-340&&e.vx*Math.sign(e.x)>0)e.vx*=Math.pow(.91,dt*60);
   if(Math.abs(e.y)>edge-340&&e.vy*Math.sign(e.y)>0)e.vy*=Math.pow(.91,dt*60);
  }
- want=e.targetAngle+Math.sin(gameTime*.7+e.x*.01)*.025;boostNow=!wallDanger&&(e.energy>20&&Math.random()<.016||e.boosting&&e.energy>8&&Math.random()<.975);e.boosting=boostNow;e.wallAvoiding=wallDanger}else{let dx=mouse.x-W/2,dy=mouse.y-H/2;want=hyp(dx,dy)<15?e.angle:Math.atan2(dy,dx);boostNow=boost&&e.energy>1;e.boosting=boostNow}if(e===player){if(boostNow&&!e._prevBoost)playSound('boost');e._prevBoost=boostNow}let speed=hyp(e.vx,e.vy);e.speedBeforeDrive=speed;let angleDelta=Math.atan2(Math.sin(want-e.angle),Math.cos(want-e.angle));let turnFactor=clamp(1.85-speed/880,.55,1.6);if(e.bot&&e.wallAvoiding)turnFactor=Math.max(turnFactor,1.55);let turn=clamp(angleDelta,-(2.95*turnFactor)*dt,(2.95*turnFactor)*dt);e.angle+=turn;let turnLoss=Math.abs(turn)*clamp(speed/170,0,1)*.085;let drag=Math.pow(.991,dt*60)*(1-turnLoss);e.vx*=drag;e.vy*=drag;let direction=unit(e.angle);let acceleration=(boostNow?560+285*levelGrowth(e.level):245+190*levelGrowth(e.level));if(boostNow)e.energy=Math.max(0,e.energy-35*dt);else e.energy=Math.min(100,e.energy+13*dt);e.vx+=direction.x*acceleration*dt;e.vy+=direction.y*acceleration*dt;let cap=topCap(e,boostNow);if(e.bot&&e.wallAvoiding)cap=Math.min(cap,180);speed=hyp(e.vx,e.vy);if(speed>cap){const allowed=(!boostNow&&!e.wallAvoiding)?Math.max(cap,e.speedBeforeDrive||cap):cap;if(speed>allowed){e.vx*=allowed/speed;e.vy*=allowed/speed;speed=allowed}}planetGravity(e,dt);e.x+=e.vx*dt;e.y+=e.vy*dt;arenaWallCollision(e);if(!e.alive)return;planetCollisions(e);if(!e.alive)return;if(e===player&&e.boosting&&speed>310&&Math.random()<.28){let v=unit(e.angle),side=rand(-7,7);sparks.push({x:e.x-v.x*16-v.y*side,y:e.y-v.y*16+v.x*side,vx:-v.x*rand(30,95)+rand(-30,30),vy:-v.y*rand(30,95)+rand(-30,30),life:rand(.15,.34),max:1,hue:48,r:rand(1,2.4)})}e.trail.push({x:e.x,y:e.y,angle:e.angle,life:e===player?.65+visualTier(e.level)*.10:.6});if(e.trail.length>(e===player?65:30))e.trail.shift();for(let i=e.trail.length-1;i>=0;i--){e.trail[i].life-=dt;if(e.trail[i].life<=0)e.trail.splice(i,1)}for(let i=orbs.length-1;i>=0;i--){let o=orbs[i],dx=e.x-o.x,dy=e.y-o.y;if(dx*dx+dy*dy<(e.r+o.r+6)**2){orbs.splice(i,1);
+ want=e.targetAngle+Math.sin(gameTime*.7+e.x*.01)*.025;boostNow=!wallDanger&&(e.energy>20&&Math.random()<.016||e.boosting&&e.energy>8&&Math.random()<.975);e.boosting=boostNow;e.wallAvoiding=wallDanger}else{let dx=mouse.x-W/2,dy=mouse.y-H/2;want=hyp(dx,dy)<15?e.angle:Math.atan2(dy,dx);boostNow=boost&&e.energy>1;e.boosting=boostNow}if(e===player){if(boostNow&&!e._prevBoost)playSound('boost');e._prevBoost=boostNow}let speed=hyp(e.vx,e.vy);e.speedBeforeDrive=speed;let angleDelta=Math.atan2(Math.sin(want-e.angle),Math.cos(want-e.angle));let turnFactor=clamp(1.85-speed/880,.55,1.6);if(e.bot&&e.wallAvoiding)turnFactor=Math.max(turnFactor,1.55);let turn=clamp(angleDelta,-(2.95*turnFactor)*dt,(2.95*turnFactor)*dt);e.angle+=turn;let turnLoss=Math.abs(turn)*clamp(speed/170,0,1)*.085;let drag=Math.pow(.991,dt*60)*(1-turnLoss);e.vx*=drag;e.vy*=drag;let direction=unit(e.angle);let acceleration=(boostNow?560+285*levelGrowth(e.level):245+190*levelGrowth(e.level));if(boostNow)e.energy=Math.max(0,e.energy-35*dt);else e.energy=Math.min(100,e.energy+13*dt);e.vx+=direction.x*acceleration*dt;e.vy+=direction.y*acceleration*dt;let cap=topCap(e,boostNow);if(e.bot&&e.wallAvoiding)cap=Math.min(cap,180);speed=hyp(e.vx,e.vy);if(speed>cap){const allowed=(!boostNow&&!e.wallAvoiding)?Math.max(cap,e.speedBeforeDrive||cap):cap;if(speed>allowed){e.vx*=allowed/speed;e.vy*=allowed/speed;speed=allowed}}planetGravity(e,dt);e.x+=e.vx*dt;e.y+=e.vy*dt;arenaWallCollision(e);if(!e.alive)return;planetCollisions(e);if(!e.alive)return;if(e===player&&e.boosting&&speed>310&&Math.random()<.28){let v=unit(e.angle),side=rand(-7,7);sparks.push({x:e.x-v.x*16-v.y*side,y:e.y-v.y*16+v.x*side,vx:-v.x*rand(30,95)+rand(-30,30),vy:-v.y*rand(30,95)+rand(-30,30),life:rand(.15,.34),max:1,hue:48,r:rand(1,2.4)})}e.trail.push({x:e.x,y:e.y,angle:e.angle,life:e===player?.92+visualTier(e.level)*.11:.78});if(e.trail.length>(e===player?88:45))e.trail.shift();for(let i=e.trail.length-1;i>=0;i--){e.trail[i].life-=dt;if(e.trail[i].life<=0)e.trail.splice(i,1)}for(let i=orbs.length-1;i>=0;i--){let o=orbs[i],dx=e.x-o.x,dy=e.y-o.y;if(dx*dx+dy*dy<(e.r+o.r+6)**2){orbs.splice(i,1);
  let xpGain=o.kind==='super'?54:o.kind==='xp'?17:7;
  let fuelGain=o.kind==='super'?39:o.kind==='boost'?21:5;
  e.score+=o.kind==='super'?45:10;
@@ -1113,7 +1125,7 @@ function collisions(){
   }
  }
 }
-function update(dt){updateTutorial();if(player&&player.alive){currentRunElapsed+=dt;runMaxSpeed=Math.max(runMaxSpeed,kmh(hyp(player.vx,player.vy)));}gameTime+=dt;updateTokens(dt);elapsed+=dt;shake*=Math.pow(.84,dt*60);if(noticeTime>0){noticeTime-=dt;if(noticeTime<=0)UI.notice.style.opacity=0}if(toastTime>0){toastTime-=dt;if(toastTime<=0)UI.toast.style.opacity=0}advancePlanets(dt);orbPlanetCheckClock+=dt;if(orbPlanetCheckClock>=.13){orbPlanetCheckClock=0;keepOrbsOutsidePlanets()}updateEntity(player,dt);if(player?.alive)updateSonicFX(player,dt);if(player&&player.alive)soundMotor(hyp(player.vx,player.vy),player.boosting);if(arenaId){bots=[];netReport(dt);for(const e of remoteById.values()){
+function update(dt){updateTutorial();if(player&&player.alive){currentRunElapsed+=dt;runMaxSpeed=Math.max(runMaxSpeed,kmh(hyp(player.vx,player.vy)));}gameTime+=dt;updateTokens(dt);elapsed+=dt;shake*=Math.pow(.84,dt*60);if(noticeTime>0){noticeTime-=dt;if(noticeTime<=0)UI.notice.style.opacity=0}if(toastTime>0){toastTime-=dt;if(toastTime<=0)UI.toast.style.opacity=0}advancePlanets(dt);orbPlanetCheckClock+=dt;if(orbPlanetCheckClock>=.13){orbPlanetCheckClock=0;keepOrbsOutsidePlanets()}updateEntity(player,dt);if(player&&player.alive)soundMotor(hyp(player.vx,player.vy),player.boosting);if(arenaId){bots=[];netReport(dt);for(const e of remoteById.values()){
   e.prevX=e.x;e.prevY=e.y;e.prevAngle=e.angle;
   if(Number.isFinite(e.netX)&&Number.isFinite(e.netY)){
    const factor=1-Math.exp(-dt*49);
@@ -1123,11 +1135,11 @@ function update(dt){updateTutorial();if(player&&player.alive){currentRunElapsed+
    e.y+=(e.netY+e.vy*lag-e.y)*factor;
    const delta=Math.atan2(Math.sin(e.netAngle-e.angle),Math.cos(e.netAngle-e.angle));
    e.angle+=delta*factor;
-   if(!e.trail.length||hyp(e.x-e.trail[e.trail.length-1].x,e.y-e.trail[e.trail.length-1].y)>6)e.trail.push({x:e.x,y:e.y,angle:e.angle,life:.55});
-   if(e.trail.length>22)e.trail.shift();
+   if(!e.trail.length||hyp(e.x-e.trail[e.trail.length-1].x,e.y-e.trail[e.trail.length-1].y)>6)e.trail.push({x:e.x,y:e.y,angle:e.angle,life:.82});
+   if(e.trail.length>42)e.trail.shift();
   }
-  for(const p of e.trail)p.life-=dt;e.trail=e.trail.filter(t=>t.life>0);updateSonicFX(e,dt)
- }probeNetworkContacts();}else{for(const b of [...bots]){updateEntity(b,dt);updateSonicFX(b,dt)}collisions();while(playing&&bots.length<MAX_BOTS)bots.push(spawnBot());}for(let i=sparks.length-1;i>=0;i--){let s=sparks[i];s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=Math.pow(.95,dt*60);s.vy*=Math.pow(.95,dt*60);s.life-=dt;if(s.life<=0)sparks.splice(i,1)}for(let i=rings.length-1;i>=0;i--){let r=rings[i];r.r+=dt*(r.velocity||290);r.life-=dt;if(r.life<=0)rings.splice(i,1)}for(let i=floats.length-1;i>=0;i--){let f=floats[i];f.y-=34*dt;f.life-=dt;if(f.life<=0)floats.splice(i,1)}if(orbs.length<MAX_ORBS){let missing=MAX_ORBS-orbs.length;let n=Math.min(missing,Math.max(1,Math.ceil(missing*.06)));for(let i=0;i<n;i++){const item=newOrb();if(item)orbs.push(item)}}let follow=1-Math.pow(.025,dt);camera.x+=(player.x-camera.x)*follow;camera.y+=(player.y-camera.y)*follow;let mobileView=document.body.classList.contains('touch-ui');let baseZoom=mobileView?(H>W?.74:.80):1;let targetZoom=baseZoom*(preset==='dynamic'?1-clamp((hyp(player.vx,player.vy)-240)/360,0,.12):1);zoom+=(targetZoom-zoom)*clamp(dt*3,0,1);if(elapsed>.15){elapsed=0;updateHud()}}
+  for(const p of e.trail)p.life-=dt;e.trail=e.trail.filter(t=>t.life>0);
+ }probeNetworkContacts();}else{for(const b of [...bots]){updateEntity(b,dt)}collisions();while(playing&&bots.length<MAX_BOTS)bots.push(spawnBot());}for(let i=sparks.length-1;i>=0;i--){let s=sparks[i];s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=Math.pow(.95,dt*60);s.vy*=Math.pow(.95,dt*60);s.life-=dt;if(s.life<=0)sparks.splice(i,1)}for(let i=rings.length-1;i>=0;i--){let r=rings[i];r.r+=dt*(r.velocity||290);r.life-=dt;if(r.life<=0)rings.splice(i,1)}for(let i=floats.length-1;i>=0;i--){let f=floats[i];f.y-=34*dt;f.life-=dt;if(f.life<=0)floats.splice(i,1)}if(orbs.length<MAX_ORBS){let missing=MAX_ORBS-orbs.length;let n=Math.min(missing,Math.max(1,Math.ceil(missing*.06)));for(let i=0;i<n;i++){const item=newOrb();if(item)orbs.push(item)}}let follow=1-Math.pow(.025,dt);camera.x+=(player.x-camera.x)*follow;camera.y+=(player.y-camera.y)*follow;let mobileView=document.body.classList.contains('touch-ui');let baseZoom=mobileView?(H>W?.74:.80):1;let targetZoom=baseZoom*(preset==='dynamic'?1-clamp((hyp(player.vx,player.vy)-240)/360,0,.12):1);zoom+=(targetZoom-zoom)*clamp(dt*3,0,1);if(elapsed>.15){elapsed=0;updateHud()}}
 function updateHud(){
  let s=hyp(player.vx,player.vy),required=player.level*60;
  UI.speed.innerHTML=`${kmh(s)} <small>km/h</small>`;
@@ -1213,97 +1225,65 @@ function drawPremiumFX(e,stage){
 
 // === POWER SIGNATURE: 2D canvas only, no GPU shaders / physics changes ===
 // Effects are scaled by level and CURRENT speed, not by cosmetic purchases.
+// POWER EVOLUTION: clear Diep.io-style silhouettes + bright aura + long luminous jet trails.
+// Draw-only features. Never used by the physics/collision system.
 function powerTrail(e,tier,hue,speed,near){
  const a=e.trail;if(a.length<2)return;
- const ratio=clamp(speed/600,0,1.6),n=a.length;
- const stride=near?Math.max(1,Math.floor(n/25)):Math.max(2,Math.floor(n/12));
+ const ratio=clamp(speed/540,0,1.7),n=a.length;
+ const stride=near?(reducedVisualFX?2:1):3;
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
- ctx.beginPath();let first=true;
- for(let i=0;i<n;i+=stride){const t=a[i];if(first){ctx.moveTo(t.x,t.y);first=false}else ctx.lineTo(t.x,t.y)}
- ctx.lineTo(e.x,e.y);
- ctx.strokeStyle=`hsl(${hue},100%,68%)`;
- ctx.lineWidth=2.8+tier*1.15+ratio*2.9;
- ctx.globalAlpha=clamp(.11+tier*.065+ratio*.15,.12,.64);
- ctx.stroke();
- if(tier>=2&&near&&!reducedVisualFX){ctx.lineWidth=1.0+tier*.23;ctx.strokeStyle='#e7ffff';ctx.globalAlpha=clamp(.11+tier*.028,.15,.34);ctx.stroke()}
+ ctx.beginPath();let start=true;
+ for(let i=0;i<n;i+=stride){const t=a[i];if(start){ctx.moveTo(t.x,t.y);start=false}else ctx.lineTo(t.x,t.y)}ctx.lineTo(e.x,e.y);
+ // The wider beam is the instantly readable indicator of an upgraded pilot.
+ ctx.strokeStyle=`hsl(${hue},100%,60%)`;
+ ctx.lineWidth=3.5+tier*2.6+ratio*4.2;
+ ctx.globalAlpha=clamp(.18+tier*.07+ratio*.11,.18,.70);
+ if(near&&!reducedVisualFX){ctx.shadowColor=`hsl(${hue},100%,67%)`;ctx.shadowBlur=7+tier*1.7;}
+ ctx.stroke();ctx.shadowBlur=0;
+ // Narrow, crisp plasma core. Cost is one extra path and no particle allocations.
+ ctx.lineWidth=1.5+tier*.44+ratio*.95;
+ ctx.strokeStyle='#efffff';ctx.globalAlpha=clamp(.23+tier*.048+ratio*.12,.28,.70);ctx.stroke();
  ctx.restore();
- // Higher-speed ships leave a few actual ship silhouettes behind, not just dots.
- if((tier>=3||ratio>1.02)&&near&&!reducedVisualFX){
-  const nGhost=Math.min(3,tier>=5?3:tier>=3?2:1);
-  ctx.save();ctx.fillStyle=`hsl(${hue},100%,75%)`;
-  for(let j=1;j<=nGhost;j++){
-   const at=Math.max(0,n-1-j*Math.max(4,Math.floor(n/(nGhost+2))));const t=a[at];if(!t)continue;
-   if(Math.abs(t.x-camera.x)>W/(2*zoom)+80||Math.abs(t.y-camera.y)>H/(2*zoom)+80)continue;
-   ctx.save();ctx.translate(t.x,t.y);ctx.rotate(Number.isFinite(t.angle)?t.angle:e.angle);
-   ctx.globalAlpha=(.15-j*.035)*clamp(speed/460,.45,1.4);
-   ctx.beginPath();ctx.moveTo(22,0);ctx.lineTo(-12,-13);ctx.lineTo(-6,0);ctx.lineTo(-12,13);ctx.closePath();ctx.fill();ctx.restore();
-  }
-  ctx.restore();
- }
 }
 function powerAura(e,tier,hue,speed,near){
- if(!tier)return;
- if(!near){if(tier>=3){ctx.save();ctx.globalAlpha=.17;ctx.strokeStyle=`hsl(${hue},100%,76%)`;ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(e.x,e.y,31+tier*3,0,TAU);ctx.stroke();ctx.restore();}return;}
- const hot=clamp(speed/720,0,1.5),t=gameTime;
- const ringsCount=tier>=5?3:tier>=3?2:tier>=2?1:0;
- ctx.save();ctx.translate(e.x,e.y);ctx.strokeStyle=`hsl(${hue},100%,74%)`;
- // Pulsing jagged corona marks the power tier even when not boosting.
- const pts=16,radius=22+tier*2.2;
- ctx.lineWidth=1.1+tier*.28;ctx.globalAlpha=clamp(.10+tier*.033+hot*.07,.1,.38);
- ctx.beginPath();for(let j=0;j<=pts;j++){
-  const angle=TAU*j/pts,rad=radius+(Math.sin(j*7+t*4+e.x*.002)*2.1+tier*.33);
-  const x=Math.cos(angle)*rad,y=Math.sin(angle)*rad;
-  if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
- }ctx.stroke();
- if(!reducedVisualFX){
-  for(let k=0;k<ringsCount;k++){
-   const r=29+tier*2.2+k*7+Math.sin(t*(1.6+k*.3)+(e.x*.001))*1.3;
-   ctx.globalAlpha=(.15+tier*.022+hot*.04)*(1-k*.14);
-   ctx.lineWidth=1.15+(tier*.10);
-   ctx.setLineDash([5+k*2.2,11+k*1.4]);ctx.lineDashOffset=t*(k%2?8:-7);
-   ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.stroke();
-  }
-  ctx.setLineDash([]);
-  // Lightning is intermittent, deterministic, and only 1-2 simple polylines.
-  if(tier>=4){
-   const flicker=Math.floor(t*6.5)+Math.floor(e.x*.01);
-   if((flicker%5)<(tier>=5?3:2)){
-    for(let k=0;k<(tier>=5?2:1);k++){
-     const start=(flicker*1.9+k*2.6)%TAU,end=start+.72;
-     const rad=radius+6+k*3,ax=Math.cos(start)*rad,ay=Math.sin(start)*rad;
-     ctx.globalAlpha=.22+.08*tier;ctx.strokeStyle='#dffaff';ctx.lineWidth=1.4;
-     ctx.beginPath();ctx.moveTo(ax,ay);
-     ctx.lineTo(Math.cos(start+.29)*(rad+6),Math.sin(start+.29)*(rad+6));
-     ctx.lineTo(Math.cos(end)*(rad+1),Math.sin(end)*(rad+1));ctx.stroke();
-    }
-   }
-  }
+ const intensity=clamp(speed/720,0,1.4),pulse=Math.sin(gameTime*2.5+e.x*.002);
+ const radius=25+tier*3.8+pulse*(1.4+tier*.3);
+ ctx.save();ctx.strokeStyle=`hsl(${hue},100%,71%)`;
+ ctx.lineWidth=1.7+tier*.58;
+ ctx.globalAlpha=clamp(.16+tier*.105+intensity*.10,.16,.81);
+ if(near&&!reducedVisualFX){ctx.shadowColor=`hsl(${hue},100%,69%)`;ctx.shadowBlur=7+tier*3;}
+ ctx.beginPath();ctx.arc(e.x,e.y,radius,0,TAU);ctx.stroke();
+ ctx.shadowBlur=0;
+ if(tier>=3&&near&&!reducedVisualFX){
+  ctx.globalAlpha=.16+(tier-3)*.055;ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.arc(e.x,e.y,radius+7+Math.sin(gameTime*1.8)*1.5,0,TAU);ctx.stroke();
  }
  ctx.restore();
 }
-function sonicCone(e,tier,hue,speed,near){
- if(!near||reducedVisualFX||!e.sonicActive)return;
- const threshold=Math.max(420,Math.min(700,baseCap(e,true)*.80));
- const p=clamp((speed-threshold)/Math.max(60,threshold*.35),0,1);
- const wave=.65+.35*Math.sin(gameTime*11+e.x*.003);
- ctx.save();ctx.translate(e.x,e.y);ctx.rotate(Math.atan2(e.vy,e.vx));
- ctx.strokeStyle='#d5f9ff';ctx.lineWidth=1.45+p*.95;ctx.globalAlpha=.23+p*.27;
- const spread=21+14*p,back=34+26*p;
- // Two trailing shock fronts form the recognizable Mach cone / vapor cone.
- ctx.beginPath();ctx.moveTo(13,0);ctx.lineTo(-back,-spread);ctx.moveTo(13,0);ctx.lineTo(-back,spread);ctx.stroke();
- ctx.strokeStyle=`hsl(${hue},100%,78%)`;ctx.globalAlpha=(.2+.17*p)*wave;ctx.lineWidth=2.1;
- ctx.beginPath();ctx.arc(-6,0,21+p*7,-1.23,1.23);ctx.stroke();
- if(tier>=3){ctx.globalAlpha=.15+.16*p;ctx.beginPath();ctx.moveTo(-back*.45,-spread*.5);ctx.lineTo(-back*1.22,-spread*1.25);ctx.moveTo(-back*.45,spread*.5);ctx.lineTo(-back*1.22,spread*1.25);ctx.stroke()}
- ctx.restore();
+// Path shapes add wings and spines with meaningful visual level progression.
+// Every point stays within ~30px. Collision polygons are intentionally unchanged.
+const EVOLVED_HULLS=[
+ [[22,0],[-12,-13],[-6,0],[-12,13]], // Level 1: classic dart
+ [[23,0],[0,-8],[-13,-17],[-12,-6],[-7,0],[-12,6],[-13,17],[0,8]], // Level 5: split wing
+ [[24,0],[7,-5],[-3,-10],[-16,-22],[-16,-9],[-9,0],[-16,9],[-16,22],[-3,10],[7,5]], // Level 10: double fins
+ [[25,0],[12,-5],[4,-10],[-8,-9],[-19,-24],[-17,-9],[-11,-3],[-7,0],[-11,3],[-17,9],[-19,24],[-8,9],[4,10],[12,5]], // Level 20: interceptor
+ [[26,0],[14,-7],[5,-11],[-5,-8],[-17,-27],[-17,-13],[-22,-17],[-16,-4],[-8,0],[-16,4],[-22,17],[-17,13],[-17,27],[-5,8],[5,11],[14,7]], // Level 35: dreadnought
+ [[27,0],[17,-5],[11,-12],[3,-9],[-3,-15],[-8,-11],[-20,-29],[-19,-16],[-25,-21],[-17,-4],[-8,0],[-17,4],[-25,21],[-19,16],[-20,29],[-8,11],[-3,15],[3,9],[11,12],[17,5]] // Level 50+: apex
+];
+function evolvedShipPath(tier){
+ const pts=EVOLVED_HULLS[Math.max(0,Math.min(5,tier|0))];
+ ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();
 }
-function powerFins(tier,hue){
- // Only decoration outside the unchanged hitbox; never affects physics.
- if(tier<2)return;
- ctx.save();ctx.strokeStyle=`hsla(${hue},100%,84%,${clamp(.30+tier*.10,.3,.85)})`;ctx.lineWidth=1.25+tier*.22;
- const span=Math.min(7,2+(tier-1)*1.4);
- ctx.beginPath();ctx.moveTo(-9,-10);ctx.lineTo(-11-span,-14-span);ctx.lineTo(-3,-7);
- ctx.moveTo(-9,10);ctx.lineTo(-11-span,14+span);ctx.lineTo(-3,7);ctx.stroke();
- if(tier>=4){ctx.globalAlpha=.8;ctx.beginPath();ctx.moveTo(1,-7);ctx.lineTo(12,-2);ctx.moveTo(1,7);ctx.lineTo(12,2);ctx.stroke()}
+function evolvedShipDetail(tier,hue){
+ if(!tier)return;
+ ctx.save();ctx.shadowBlur=0;ctx.lineCap='round';ctx.lineJoin='round';
+ ctx.strokeStyle=`hsla(${hue},100%,90%,.86)`;ctx.lineWidth=1.1+Math.min(2,tier*.17);
+ ctx.beginPath();ctx.moveTo(-8,-(5+tier*.8));ctx.lineTo(9+tier*.35,0);ctx.lineTo(-8,5+tier*.8);ctx.stroke();
+ if(tier>=2){ctx.strokeStyle=`hsla(${hue},100%,83%,.63)`;ctx.beginPath();ctx.moveTo(-8,-9);ctx.lineTo(-13,-(13+tier*1.5));ctx.moveTo(-8,9);ctx.lineTo(-13,13+tier*1.5);ctx.stroke();}
+ if(tier>=4){
+  ctx.fillStyle='#eaffff';ctx.globalAlpha=.82;
+  for(const side of [-1,1]){ctx.beginPath();ctx.arc(-9,side*13,1.6,0,TAU);ctx.fill();}
+ }
  ctx.restore();
 }
 let reducedVisualFX=false,slowFrameTime=0,recoveryTime=0,miniLastDraw=0;
@@ -1364,7 +1344,6 @@ ctx.shadowBlur=0;for(const s of sparks){ctx.globalAlpha=clamp(s.life*1.7,0,1);ct
  const near=own||hyp(e.x-player.x,e.y-player.y)<420;
  powerTrail(e,stage,hue,speed,near);
  powerAura(e,stage,hue,speed,near);
- sonicCone(e,stage,hue,speed,near);
  if(own)drawPremiumFX(e,stage);
 if(own&&e.levelPulse>0){
  ctx.save();let progress=1-Math.min(1,e.levelPulse/1.15);
@@ -1376,7 +1355,7 @@ ctx.shadowColor=`hsl(${hue},95%,64%)`;ctx.shadowBlur=reducedVisualFX?8:12+v*15+M
 const skin=own&&profile?SKINS.find(k=>k.id===profile.equipped):null;
 if(skin){const g=ctx.createLinearGradient(-12,-13,22,13);g.addColorStop(0,skin.light);g.addColorStop(.42,skin.main);g.addColorStop(1,skin.dark);ctx.fillStyle=g;ctx.shadowColor=skin.glow;}
 else ctx.fillStyle=`hsl(${hue},90%,${e.invuln>0?78:59+(own?Math.min(11,stage*2):0)}%)`;
-ctx.beginPath();ctx.moveTo(22,0);ctx.lineTo(-12,-13);ctx.lineTo(-6,0);ctx.lineTo(-12,13);ctx.closePath();ctx.fill();powerFins(stage,hue);if(stage>=3){ctx.shadowBlur=0;ctx.strokeStyle=`hsla(${hue},100%,90%,.8)`;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(-4,-8);ctx.lineTo(12,0);ctx.lineTo(-4,8);ctx.stroke()}ctx.shadowBlur=0;ctx.strokeStyle=own&&skin?skin.edge:(own?'#fffefa':'#e5faff');ctx.lineWidth=own?3.25:2;ctx.beginPath();ctx.moveTo(22,0);ctx.lineTo(-12,-13);ctx.lineTo(-6,0);ctx.lineTo(-12,13);ctx.closePath();if(own){ctx.save();ctx.strokeStyle='#05101e';ctx.lineWidth=7;ctx.stroke();ctx.restore()}ctx.stroke();ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(4,0,3.5,0,TAU);ctx.fill();if(e.boosting){ctx.fillStyle='#ffdc77';ctx.beginPath();ctx.moveTo(-10,-7);ctx.lineTo(-19-rand(0,13),0);ctx.lineTo(-10,7);ctx.fill()}ctx.restore();if(e.invuln>0){ctx.strokeStyle=`hsla(${hue},100%,78%,.45)`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,26+Math.sin(gameTime*9)*3,0,TAU);ctx.stroke()}const titleY=e.y-(stage>=2?49+stage*3:29);ctx.font=stage>=3?'800 12px system-ui':'700 12px system-ui';ctx.textAlign='center';ctx.fillStyle=e===player?'#bfffee':stage>=3?'#fff6ce':'#d2d9eb';ctx.fillText(e.name+(visualTier(e.level||1)>=2?'  ✦ LVL '+e.level:stage>=2?'  ⚡ FAST':''),e.x,titleY);ctx.font='11px system-ui';ctx.fillStyle=stage>=3?'#b9eaff':'#9eb7c9';ctx.fillText(`${Math.round(speed*.46)} km/h`,e.x,titleY-13);
+evolvedShipPath(stage);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle=own&&skin?skin.edge:(own?'#fffefa':'#e5faff');ctx.lineWidth=own?3.25:2;evolvedShipPath(stage);if(own){ctx.save();ctx.strokeStyle='#05101e';ctx.lineWidth=6;ctx.stroke();ctx.restore()}ctx.stroke();evolvedShipDetail(stage,hue);ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(4,0,3.5,0,TAU);ctx.fill();if(e.boosting){ctx.fillStyle='#ffdc77';ctx.beginPath();ctx.moveTo(-10,-7);ctx.lineTo(-19-rand(0,13),0);ctx.lineTo(-10,7);ctx.fill()}ctx.restore();if(e.invuln>0){ctx.strokeStyle=`hsla(${hue},100%,78%,.45)`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,26+Math.sin(gameTime*9)*3,0,TAU);ctx.stroke()}const titleY=e.y-(stage>=1?47+stage*3:29);ctx.font=stage>=3?'800 12px system-ui':'700 12px system-ui';ctx.textAlign='center';ctx.fillStyle=e===player?'#bfffee':stage>=3?'#fff6ce':'#d2d9eb';ctx.fillText(e.name+(visualTier(e.level||1)>=2?'  ✦ LVL '+e.level:stage>=2?'  ⚡ FAST':''),e.x,titleY);ctx.font='11px system-ui';ctx.fillStyle=stage>=3?'#b9eaff':'#9eb7c9';ctx.fillText(`${Math.round(speed*.46)} km/h`,e.x,titleY-13);
  if(e===player){
   const bx=e.x-33,by=e.y+28,bw=66,bh=7,energy=clamp(e.energy/100,0,1);
   ctx.save();ctx.fillStyle='#091827d9';ctx.beginPath();ctx.roundRect(bx-2,by-2,bw+4,bh+4,5);ctx.fill();
@@ -1612,22 +1591,14 @@ function renderDeath(cause){
 }
 function revive(fee){if(!dead||!chargeTokens(fee))return;revivesThisRun++;let x=0,y=0;for(let i=0;i<150;i++){x=rand(-WORLD*.8,WORLD*.8);y=rand(-WORLD*.8,WORLD*.8);if(!planetAt(x,y,160)&&bots.every(b=>hyp(b.x-x,b.y-y)>480))break;}
 player.x=x;player.y=y;player.vx=player.vy=0;player.angle=rand(0,TAU);player.alive=true;player.invuln=4;player.energy=100;player.bounceCooldown=0;player.trail=[];camera.x=x;camera.y=y;dead=false;playing=true;UI.overlay.classList.remove('death-modal');UI.overlay.classList.add('hidden');document.body.classList.add('in-game');lockAim();last=performance.now();requestAnimationFrame(frame);updateHud();netJoin();toast('REVIVED · 4S SHIELD')}
-function toggleExitMenu(){if(!playing)return;menuOpen=!menuOpen;document.getElementById('admin-controls').hidden=!isAdminClient;document.getElementById('leave-title').textContent=isAdminClient?'Admin tools · Test mode':'Leave the arena?';document.getElementById('leave-description').textContent=isAdminClient?'The match keeps running while you use these tools. Your ship is not automatically protected.':'The match does not pause. Your ship remains vulnerable while this menu is open.';document.getElementById('leave-screen').hidden=!menuOpen;boost=false;if(menuOpen){if(document.pointerLockElement===canvas)document.exitPointerLock();document.getElementById('keep-playing').focus()}else{lockAim();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}}
+function toggleExitMenu(){if(!playing)return;menuOpen=!menuOpen;syncOwnerPanel();document.getElementById('leave-title').textContent=isAdminClient?'Admin tools · Test mode':'Leave the arena?';document.getElementById('leave-description').textContent=isAdminClient?'The match keeps running while you use these tools. Your ship is not automatically protected.':'The match does not pause. Your ship remains vulnerable while this menu is open.';document.getElementById('leave-screen').hidden=!menuOpen;boost=false;if(menuOpen){if(document.pointerLockElement===canvas)document.exitPointerLock();document.getElementById('keep-playing').focus()}else{lockAim();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}}
 document.getElementById('keep-playing').addEventListener('click',toggleExitMenu);
 // Do not reveal or enable admin commands based on an email stored in the browser.
 // The server authenticates the Google identity on join, then checks EVERY command.
-const adminSection=document.getElementById('admin-controls');
 function adminSend(action,value){
  if(!isAdminClient||!arenaId||arenaSocket?.readyState!==1){siteError('Admin verification required. Join the arena with the authorized Google account.');return;}
  netSend({type:'admin',action,value});
 }
-adminSection.querySelectorAll('[data-admin-action]').forEach(b=>b.addEventListener('click',()=>adminSend(b.dataset.adminAction,b.hasAttribute('data-admin-value')?Number(b.dataset.adminValue):undefined)));
-document.getElementById('admin-set-level').addEventListener('click',()=>{
- const input=document.getElementById('admin-custom-level');const value=Number(input.value);
- if(!Number.isInteger(value)||value<1||value>500){siteError('Choose a level between 1 and 500.');return}
- adminSend('level',value);
-});
-document.getElementById('admin-custom-level').addEventListener('keydown',e=>{if(e.code==='Enter'){e.preventDefault();document.getElementById('admin-set-level').click();}});
 document.getElementById('quit-arena').addEventListener('click',()=>{recordCompletedRun();netLeave();playing=false;menuOpen=false;boost=false;soundMotor(0,false);best=Math.max(best,player.score);if(profile){profile.best=Math.max(profile.best||0,player.score);saveProfiles()}renderLobby('play')});
 // Rewards de classement : tokens directs, aucun point de chest.
 // Beta : portefeuille local uniquement. Ne pas utiliser pour des achats réels.
